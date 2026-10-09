@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hale — High-Fidelity UX Mockups & Interactive Previews</title>
+  <style>
+    :root {
+      --color-brand-primary: #1B4931;
+      --color-brand-primary-light: #E8F0EA;
+      --color-brand-primary-dark: #123322;
+      --color-brand-accent: #E07A5F;
+      --color-brand-accent-light: #FDF1ED;
+      --color-bg-canvas: #FBFBF9;
+      --color-bg-surface: #FFFFFF;
+      --color-bg-subtle: #F3F4EE;
+      --color-border-subtle: #E5E7EB;
+      --color-text-primary: #191C1E;
+      --color-text-secondary: #4B5563;
+      --color-text-muted: #6B7280;
+      --color-text-inverse: #FFFFFF;
+      --color-semantic-success: #2D6A4F;
+      --color-semantic-warn: #D97706;
+      --color-semantic-error: #DC2626;
+      --shadow-card: 0px 2px 8px rgba(0, 0, 0, 0.04), 0px 1px 3px rgba(0, 0, 0, 0.02);
+      --shadow-floating: 0px 10px 28px rgba(27, 73, 49, 0.12), 0px 4px 10px rgba(0, 0, 0, 0.04);
+      --shadow-modal: 0px 20px 48px rgba(0, 0, 0, 0.14), 0px 6px 16px rgba(0, 0, 0, 0.06);
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 16px;
+      --radius-xl: 24px;
+      --radius-full: 9999px;
+      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-family);
+      background-color: #EDECE6;
+      color: var(--color-text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Top Control Bar */
+    header.control-bar {
+      background: #FFFFFF;
+      border-bottom: 1px solid var(--color-border-subtle);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+    }
+    .brand-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--color-brand-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .brand-title span.badge {
+      font-size: 11px;
+      background: var(--color-brand-primary-light);
+      color: var(--color-brand-primary);
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+      font-weight: 600;
+    }
+
+    .nav-tabs {
+      display: flex;
+      gap: 6px;
+      background: var(--color-bg-subtle);
+      padding: 4px;
+      border-radius: var(--radius-md);
+      overflow-x: auto;
+    }
+    .nav-tab-btn {
+      border: none;
+      background: transparent;
+      padding: 6px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--color-text-secondary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    .nav-tab-btn.active {
+      background: #FFFFFF;
+      color: var(--color-brand-primary);
+      font-weight: 600;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    .viewport-toggle {
+      display: flex;
+      gap: 4px;
+      background: var(--color-bg-subtle);
+      padding: 3px;
+      border-radius: var(--radius-sm);
+    }
+    .viewport-btn {
+      border: none;
+      background: transparent;
+      padding: 4px 10px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      color: var(--color-text-secondary);
+    }
+    .viewport-btn.active {
+      background: #FFFFFF;
+      color: var(--color-brand-primary);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+
+    /* Main Container */
+    main.preview-stage {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 32px 16px;
+      overflow-y: auto;
+    }
+
+    /* Device Frames */
+    .device-frame-mobile {
+      width: 390px;
+      min-height: 844px;
+      background: var(--color-bg-canvas);
+      border-radius: 40px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.18), 0 0 0 12px #262626;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+    .device-notch {
+      height: 28px;
+      width: 140px;
+      background: #262626;
+      border-radius: 0 0 16px 16px;
+      margin: 0 auto;
+      z-index: 50;
+    }
+
+    .device-frame-desktop {
+      width: 1180px;
+      min-height: 800px;
+      background: var(--color-bg-canvas);
+      border-radius: 16px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.14), 0 0 0 1px var(--color-border-subtle);
+      overflow: hidden;
+      display: flex;
+    }
+
+    /* Screen View Wrappers */
+    .screen-view {
+      display: none;
+      width: 100%;
+      height: 100%;
+      flex-direction: column;
+    }
+    .screen-view.active {
+      display: flex;
+    }
+
+    /* Screen UI Primitives */
+    .mobile-header {
+      padding: 12px 20px 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .screen-content {
+      flex: 1;
+      padding: 16px 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .card {
+      background: var(--color-bg-surface);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      box-shadow: var(--shadow-card);
+      border: 1px solid rgba(0,0,0,0.03);
+    }
+    .card-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--color-text-primary);
+      margin-bottom: 4px;
+    }
+    .card-desc {
+      font-size: 13px;
+      color: var(--color-text-secondary);
+      line-height: 1.45;
+    }
+
+    /* Buttons */
+    .btn-primary {
+      background: var(--color-brand-primary);
+      color: var(--color-text-inverse);
+      border: none;
+      padding: 14px 20px;
+      border-radius: var(--radius-md);
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background 0.15s ease;
+      width: 100%;
+    }
+    .btn-primary:hover { background: var(--color-brand-primary-dark); }
+    .btn-secondary {
+      background: var(--color-bg-subtle);
+      color: var(--color-brand-primary);
+      border: none;
+      padding: 10px 16px;
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-stepper {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--radius-sm);
+      background: var(--color-bg-subtle);
+      border: 1px solid var(--color-border-subtle);
+      font-size: 16px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    /* Mobile Bottom Tab Bar */
+    .tab-bar {
+      height: 68px;
+      background: #FFFFFF;
+      border-top: 1px solid var(--color-border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      position: relative;
+      padding-bottom: 8px;
+    }
+    .tab-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      font-size: 11px;
+      color: var(--color-text-muted);
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .tab-item.active {
+      color: var(--color-brand-primary);
+      font-weight: 600;
+    }
+    .tab-fab {
+      width: 52px;
+      height: 52px;
+      background: var(--color-brand-primary);
+      color: #FFFFFF;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      margin-top: -24px;
+      box-shadow: var(--shadow-floating);
+      cursor: pointer;
+    }
+
+    /* Desktop Sidebar */
+    .desktop-sidebar {
+      width: 240px;
+      background: #FFFFFF;
+      border-right: 1px solid var(--color-border-subtle);
+      padding: 24px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .desktop-nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-radius: var(--radius-md);
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--color-text-secondary);
+      cursor: pointer;
+    }
+    .desktop-nav-item.active {
+      background: var(--color-brand-primary-light);
+      color: var(--color-brand-primary);
+      font-weight: 600;
+    }
+    .desktop-content-area {
+      flex: 1;
+      padding: 32px 40px;
+      overflow-y: auto;
+      max-width: 800px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* Calorie Ring Graphic */
+    .ring-container {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+    .macro-bar-track {
+      background: var(--color-bg-subtle);
+      height: 6px;
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    .macro-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+    }
+
+    /* Habit Card */
+    .habit-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px;
+      background: var(--color-bg-canvas);
+      border-radius: var(--radius-md);
+      margin-top: 8px;
+    }
+    .habit-tag {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      background: var(--color-brand-primary-light);
+      color: var(--color-brand-primary);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    /* Sheet / Modal overlay */
+    .sheet-mock {
+      background: #FFFFFF;
+      border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+      padding: 24px 20px;
+      box-shadow: var(--shadow-modal);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      border-top: 1px solid var(--color-border-subtle);
+    }
+    .sheet-handle {
+      width: 36px;
+      height: 4px;
+      background: #D1D5DB;
+      border-radius: 2px;
+      margin: -12px auto 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Control Bar -->
+  <header class="control-bar">
+    <div class="brand-title">
+      🌿 Hale <span class="badge">Hi-Fi Mockups</span>
+    </div>
+    <div class="nav-tabs">
+      <button class="nav-tab-btn active" onclick="showScreen('screen-plan')">1. Onboarding Plan</button>
+      <button class="nav-tab-btn" onclick="showScreen('screen-today')">2. Today (Coach)</button>
+      <button class="nav-tab-btn" onclick="showScreen('screen-capture')">3. Capture Sheet</button>
+      <button class="nav-tab-btn" onclick="showScreen('screen-confirm')">4. Confirmation Sheet</button>
+      <button class="nav-tab-btn" onclick="showScreen('screen-report-review')">5. Report Review</button>
+      <button class="nav-tab-btn" onclick="showScreen('screen-param-detail')">6. Parameter Detail</button>
+      <button class="nav-tab-btn" onclick="showScreen('screen-chat')">7. Assistant Chat</button>
+    </div>
+    <div class="viewport-toggle">
+      <button class="viewport-btn active" id="btn-mobile" onclick="setViewport('mobile')">📱 Mobile</button>
+      <button class="viewport-btn" id="btn-desktop" onclick="setViewport('desktop')">💻 Desktop</button>
+    </div>
+  </header>
+
+  <!-- Interactive Stage -->
+  <main class="preview-stage">
+    
+    <!-- MOBILE FRAME -->
+    <div class="device-frame-mobile" id="mobile-frame">
+      <div class="device-notch"></div>
+
+      <!-- 1. ONBOARDING PLAN SCREEN -->
+      <div class="screen-view active" id="m-screen-plan">
+        <div class="mobile-header">
+          <span style="font-size:12px; font-weight:600; color:var(--color-brand-primary);">STEP 5 OF 5</span>
+          <span style="font-size:12px; color:var(--color-text-muted);">Personalized Plan</span>
+        </div>
+        <div class="screen-content">
+          <div>
+            <h1 style="font-size: 22px; font-weight: 700; color:var(--color-text-primary);">Your tailored plan</h1>
+            <p style="font-size: 13px; color: var(--color-text-secondary); margin-top: 4px;">Designed for fat loss with muscle retention.</p>
+          </div>
+
+          <!-- Calorie & Macro Target Card -->
+          <div class="card" style="background: linear-gradient(145deg, #FFFFFF, #F8FAF8); border: 1.5px solid var(--color-brand-primary-light);">
+            <div style="display:flex; justify-content:space-between; align-items:baseline;">
+              <span style="font-size:13px; font-weight:600; color:var(--color-text-secondary);">Daily Target</span>
+              <span style="font-size:28px; font-weight:700; color:var(--color-brand-primary);">1,850 <span style="font-size:14px; font-weight:500;">kcal</span></span>
+            </div>
+            <!-- Macro split -->
+            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:8px; margin-top:12px; padding-top:12px; border-top:1px solid var(--color-border-subtle);">
+              <div>
+                <span style="font-size:11px; color:var(--color-text-muted);">Protein</span>
+                <p style="font-size:15px; font-weight:600; color:#2D6A4F;">95g (21%)</p>
+              </div>
+              <div>
+                <span style="font-size:11px; color:var(--color-text-muted);">Carbs</span>
+                <p style="font-size:15px; font-weight:600; color:#1B4931;">208g (45%)</p>
+              </div>
+              <div>
+                <span style="font-size:11px; color:var(--color-text-muted);">Fats</span>
+                <p style="font-size:15px; font-weight:600; color:#D97706;">68g (34%)</p>
+              </div>
+            </div>
+            <!-- WHY this number -->
+            <div style="background: var(--color-brand-primary-light); padding:10px 12px; border-radius:var(--radius-md); margin-top:12px;">
+              <p style="font-size:12px; color:var(--color-brand-primary); line-height:1.4;">
+                💡 <strong>Why this number:</strong> Your body burns ~2,250 kcal/day. A 400 kcal deficit creates a safe 0.4 kg/week fat loss pace that keeps energy steady.
+              </p>
+            </div>
+          </div>
+
+          <!-- 3 Focus Habits -->
+          <div>
+            <h2 style="font-size: 15px; font-weight: 600; margin-bottom: 8px;">3 Focus Habits (What & Why)</h2>
+            
+            <div class="habit-item">
+              <span style="font-size:20px;">🥩</span>
+              <div style="flex:1;">
+                <div style="display:flex; justify-content:space-between;">
+                  <strong style="font-size:13px;">Hit ~95g protein daily</strong>
+                  <span class="habit-tag">Habit 1</span>
+                </div>
+                <p style="font-size:12px; color:var(--color-text-secondary); margin-top:3px;">
+                  <strong>Why:</strong> In a deficit, protein prevents muscle breakdown so weight lost is pure fat.
+                </p>
+                <span style="font-size:11px; color:var(--color-text-muted); display:block; margin-top:4px;">📊 Measured automatically from logged meals</span>
+              </div>
+            </div>
+
+            <div class="habit-item">
+              <span style="font-size:20px;">⏱️</span>
+              <div style="flex:1;">
+                <div style="display:flex; justify-content:space-between;">
+                  <strong style="font-size:13px;">Log meals daily</strong>
+                  <span class="habit-tag">Habit 2</span>
+                </div>
+                <p style="font-size:12px; color:var(--color-text-secondary); margin-top:3px;">
+                  <strong>Why:</strong> Studies show consistent meal logging doubles fat-loss success. Voice logging takes 8s.
+                </p>
+                <span style="font-size:11px; color:var(--color-text-muted); display:block; margin-top:4px;">🔥 Measured via streak tracker</span>
+              </div>
+            </div>
+
+            <div class="habit-item">
+              <span style="font-size:20px;">🌙</span>
+              <div style="flex:1;">
+                <div style="display:flex; justify-content:space-between;">
+                  <strong style="font-size:13px;">Balanced dinner before 9 PM</strong>
+                  <span class="habit-tag">Habit 3</span>
+                </div>
+                <p style="font-size:12px; color:var(--color-text-secondary); margin-top:3px;">
+                  <strong>Why:</strong> Lighter dinners improve sleep quality and morning insulin sensitivity.
+                </p>
+                <span style="font-size:11px; color:var(--color-text-muted); display:block; margin-top:4px;">⏰ Measured by evening meal timing</span>
+              </div>
+            </div>
+          </div>
+
+          <button class="btn-primary" onclick="showScreen('screen-today')">Log My First Meal →</button>
+        </div>
+      </div>
+
+      <!-- 2. TODAY (COACH & HOME) -->
+      <div class="screen-view" id="m-screen-today">
+        <div class="mobile-header">
+          <div>
+            <span style="font-size:11px; font-weight:600; color:var(--color-text-muted); text-transform:uppercase;">Thursday, Oct 9</span>
+            <h2 style="font-size:18px; font-weight:700;">Good afternoon, Aarav</h2>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px; background:var(--color-brand-accent-light); padding:4px 10px; border-radius:var(--radius-full);">
+            <span>🔥</span>
+            <span style="font-size:12px; font-weight:700; color:var(--color-brand-accent);">4 days</span>
+          </div>
+        </div>
+
+        <div class="screen-content">
+          <!-- Next Best Action Card -->
+          <div class="card" style="background:#1B4931; color:#FFFFFF; border:none;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+              <span style="background:rgba(255,255,255,0.2); font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px;">YOUR ONE THING</span>
+              <span style="font-size:12px; opacity:0.85;">1:15 PM</span>
+            </div>
+            <h3 style="font-size:15px; font-weight:600; margin-bottom:4px;">Lunch not logged yet</h3>
+            <p style="font-size:12px; opacity:0.9; line-height:1.4; margin-bottom:12px;">You usually eat around 1 PM. Speak or snap your lunch in 10s to stay on pace.</p>
+            <button class="btn-primary" style="background:#FFFFFF; color:#1B4931; padding:10px 14px; font-size:13px;" onclick="showScreen('screen-capture')">
+              🎙 Log Lunch (Voice or Photo)
+            </button>
+          </div>
+
+          <!-- Daily Calorie & Macro Rings -->
+          <div class="card">
+            <div class="ring-container">
+              <!-- SVG Calorie Ring -->
+              <svg width="100" height="100" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="40" stroke="#F3F4EE" stroke-width="10" fill="none" />
+                <circle cx="50" cy="50" r="40" stroke="#1B4931" stroke-width="10" fill="none"
+                        stroke-dasharray="251.2" stroke-dashoffset="130" stroke-linecap="round" />
+                <text x="50" y="47" text-anchor="middle" font-size="16" font-weight="700" fill="#191C1E">890</text>
+                <text x="50" y="60" text-anchor="middle" font-size="9" fill="#6B7280">/ 1,850 kcal</text>
+              </svg>
+              <!-- Macros -->
+              <div style="flex:1; display:flex; flex-direction:column; gap:8px;">
+                <div>
+                  <div style="display:flex; justify-content:space-between; font-size:12px;">
+                    <span>Protein</span>
+                    <strong>42g / 95g <span style="color:#6B7280; font-size:10px;">(53g left)</span></strong>
+                  </div>
+                  <div class="macro-bar-track"><div class="macro-bar-fill" style="width:44%; background:#2D6A4F;"></div></div>
+                </div>
+                <div>
+                  <div style="display:flex; justify-content:space-between; font-size:12px;">
+                    <span>Carbs</span>
+                    <strong>105g / 208g</strong>
+                  </div>
+                  <div class="macro-bar-track"><div class="macro-bar-fill" style="width:50%; background:#1B4931;"></div></div>
+                </div>
+                <div>
+                  <div style="display:flex; justify-content:space-between; font-size:12px;">
+                    <span>Fats</span>
+                    <strong>34g / 68g</strong>
+                  </div>
+                  <div class="macro-bar-track"><div class="macro-bar-fill" style="width:50%; background:#D97706;"></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Insight of the Day -->
+          <div class="card" style="background:#FBF8F4; border-left: 4px solid var(--color-brand-accent);">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-size:11px; font-weight:700; color:var(--color-brand-accent);">TODAY'S COACH INSIGHT</span>
+              <span style="font-size:11px; color:#6B7280;">Why this matters</span>
+            </div>
+            <p style="font-size:13px; color:var(--color-text-primary); margin-top:6px; line-height:1.45;">
+              "You have <strong>53g protein to go</strong> before evening. Having Greek yogurt, sprouts, or paneer with lunch makes hitting 95g effortless without excess carbs."
+            </p>
+          </div>
+
+          <!-- Timeline -->
+          <div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <h3 style="font-size:14px; font-weight:600;">Today's Meals</h3>
+              <span style="font-size:12px; color:var(--color-brand-primary); font-weight:600; cursor:pointer;" onclick="showScreen('screen-capture')">+ Add</span>
+            </div>
+            <div class="card" style="padding:12px; display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <span style="font-size:11px; color:#6B7280;">08:30 AM · Breakfast</span>
+                <h4 style="font-size:13px; font-weight:600; margin-top:2px;">Oats with milk, chia seeds & almonds</h4>
+                <span style="font-size:11px; color:#2D6A4F;">18g protein · 52g carbs</span>
+              </div>
+              <strong style="font-size:14px;">390 kcal</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mobile Tab Bar -->
+        <div class="tab-bar">
+          <div class="tab-item active"><span style="font-size:18px;">🏠</span>Today</div>
+          <div class="tab-fab" onclick="showScreen('screen-capture')">+</div>
+          <div class="tab-item" onclick="showScreen('screen-chat')"><span style="font-size:18px;">💬</span>Coach</div>
+          <div class="tab-item" onclick="showScreen('screen-report-review')"><span style="font-size:18px;">📄</span>Reports</div>
+        </div>
+      </div>
+
+      <!-- 3. CAPTURE SHEET -->
+      <div class="screen-view" id="m-screen-capture">
+        <div class="mobile-header">
+          <span style="font-size:14px; font-weight:600;" onclick="showScreen('screen-today')">✕ Close</span>
+          <span style="font-size:13px; color:var(--color-text-muted);">Quick Capture</span>
+        </div>
+        <div class="screen-content" style="justify-content:flex-end;">
+          <div class="sheet-mock">
+            <div class="sheet-handle"></div>
+            <h2 style="font-size:17px; font-weight:700; text-align:center;">Log Meal in Under 10s</h2>
+            
+            <!-- Voice Mode Highlight -->
+            <div style="background:var(--color-brand-primary-light); border-radius:var(--radius-lg); padding:24px 16px; text-align:center;">
+              <div style="width:68px; height:68px; background:var(--color-brand-primary); color:#FFFFFF; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:28px; cursor:pointer; box-shadow:var(--shadow-floating);" onclick="showScreen('screen-confirm')">
+                🎙
+              </div>
+              <p style="font-size:13px; font-weight:600; color:var(--color-brand-primary); margin-top:12px;">Tap to speak your meal</p>
+              <p style="font-size:12px; color:var(--color-text-secondary); margin-top:2px;">"2 rotis, bowl of dal, and cucumber salad"</p>
+            </div>
+
+            <!-- Quick Action Row -->
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+              <button class="btn-secondary" style="display:flex; align-items:center; justify-content:center; gap:6px; padding:12px;" onclick="showScreen('screen-confirm')">
+                📷 Snap Plate
+              </button>
+              <button class="btn-secondary" style="display:flex; align-items:center; justify-content:center; gap:6px; padding:12px;" onclick="showScreen('screen-confirm')">
+                ⌨️ Quick Type
+              </button>
+            </div>
+
+            <!-- Frequent Chips -->
+            <div>
+              <span style="font-size:11px; font-weight:600; color:#6B7280; text-transform:uppercase;">Recent & Frequent</span>
+              <div style="display:flex; gap:6px; margin-top:6px; flex-wrap:wrap;">
+                <span class="btn-secondary" style="padding:6px 10px; font-size:12px;" onclick="showScreen('screen-confirm')">Usual Lunch (2 rotis + dal)</span>
+                <span class="btn-secondary" style="padding:6px 10px; font-size:12px;" onclick="showScreen('screen-confirm')">Protein Shake (30g)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. CONFIRMATION SHEET -->
+      <div class="screen-view" id="m-screen-confirm">
+        <div class="mobile-header">
+          <span style="font-size:14px; font-weight:600;" onclick="showScreen('screen-today')">✕ Cancel</span>
+          <span style="font-size:13px; font-weight:600; color:var(--color-brand-primary);">Editable Review</span>
+        </div>
+        <div class="screen-content">
+          <div class="card" style="background:#F0F7F2; border:1px solid #D1E5D7;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-size:12px; font-weight:600; color:var(--color-brand-primary);">MEAL TYPE: LUNCH</span>
+              <span style="font-size:11px; color:#2D6A4F; font-weight:600;">✓ Parsed in 1.4s</span>
+            </div>
+            <h2 style="font-size:24px; font-weight:700; color:var(--color-brand-primary); margin-top:4px;">520 kcal</h2>
+            <p style="font-size:12px; color:var(--color-text-secondary);">28g Protein · 68g Carbs · 14g Fat</p>
+          </div>
+
+          <h3 style="font-size:14px; font-weight:600;">Parsed Items (Tap steppers to adjust)</h3>
+
+          <!-- Item 1 -->
+          <div class="card" style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <h4 style="font-size:14px; font-weight:600;">Chapati / Roti</h4>
+              <span style="font-size:11px; color:#6B7280;">2 pieces · 240 kcal · 6g P</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <button class="btn-stepper">-</button>
+              <strong style="font-size:14px;">2</strong>
+              <button class="btn-stepper">+</button>
+            </div>
+          </div>
+
+          <!-- Item 2 -->
+          <div class="card" style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <h4 style="font-size:14px; font-weight:600;">Yellow Toor Dal</h4>
+                <span style="font-size:10px; background:#FEF3C7; color:#92400E; padding:1px 5px; border-radius:4px; font-weight:600;">~ estimated</span>
+              </div>
+              <span style="font-size:11px; color:#6B7280;">1 medium katori (150ml) · 180 kcal · 11g P</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <button class="btn-stepper">-</button>
+              <strong style="font-size:14px;">1</strong>
+              <button class="btn-stepper">+</button>
+            </div>
+          </div>
+
+          <!-- Item 3 -->
+          <div class="card" style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <h4 style="font-size:14px; font-weight:600;">Plain Curd / Dahi</h4>
+              <span style="font-size:11px; color:#6B7280;">1 small bowl (100g) · 100 kcal · 11g P</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <button class="btn-stepper">-</button>
+              <strong style="font-size:14px;">1</strong>
+              <button class="btn-stepper">+</button>
+            </div>
+          </div>
+
+          <div style="background:var(--color-brand-primary-light); padding:10px 12px; border-radius:var(--radius-md);">
+            <p style="font-size:12px; color:var(--color-brand-primary);">
+              ✨ <strong>Impact:</strong> +28g protein logged. Leaves 25g protein for dinner to hit your 95g goal.
+            </p>
+          </div>
+
+          <button class="btn-primary" onclick="showScreen('screen-today')">✓ Confirm & Save Meal</button>
+        </div>
+      </div>
+
+      <!-- 5. REPORT REVIEW -->
+      <div class="screen-view" id="m-screen-report-review">
+        <div class="mobile-header">
+          <h2 style="font-size:16px; font-weight:700;">Lab Report Review</h2>
+          <span style="font-size:12px; color:var(--color-brand-primary); font-weight:600;">Upload New</span>
+        </div>
+        <div class="screen-content">
+          <div class="card" style="background:#F9FAFB; border:1px solid #E5E7EB;">
+            <div style="display:flex; justify-content:space-between;">
+              <div>
+                <h3 style="font-size:14px; font-weight:600;">Metropolis Annual Lipid & Sugar</h3>
+                <span style="font-size:11px; color:#6B7280;">Report Date: 12 Sep 2026</span>
+              </div>
+              <span style="font-size:11px; background:#D1FAE5; color:#065F46; padding:2px 8px; border-radius:var(--radius-full); font-weight:600; height:fit-content;">4 Extracted</span>
+            </div>
+          </div>
+
+          <h3 style="font-size:13px; font-weight:600; color:#4B5563;">EXTRACTED BIOMARKERS</h3>
+
+          <!-- Parameter 1 (Flagged High) -->
+          <div class="card" onclick="showScreen('screen-param-detail')" style="cursor:pointer; border-left:4px solid var(--color-semantic-warn);">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <h4 style="font-size:14px; font-weight:600;">LDL Cholesterol</h4>
+                <span style="font-size:11px; color:#6B7280;">Ref: &lt; 100 mg/dL</span>
+              </div>
+              <div style="text-align:right;">
+                <strong style="font-size:16px; color:var(--color-semantic-warn);">132 mg/dL</strong>
+                <span style="display:block; font-size:10px; font-weight:700; color:var(--color-semantic-warn); text-transform:uppercase;">Borderline High</span>
+              </div>
+            </div>
+            <p style="font-size:11px; color:var(--color-brand-primary); margin-top:8px;">💡 Goal habit linked: "Swap fried snacks for chana" →</p>
+          </div>
+
+          <!-- Parameter 2 (Normal) -->
+          <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <h4 style="font-size:14px; font-weight:600;">Fasting Blood Glucose</h4>
+                <span style="font-size:11px; color:#6B7280;">Ref: 70 - 99 mg/dL</span>
+              </div>
+              <div style="text-align:right;">
+                <strong style="font-size:16px; color:var(--color-semantic-success);">91 mg/dL</strong>
+                <span style="display:block; font-size:10px; font-weight:700; color:var(--color-semantic-success); text-transform:uppercase;">Normal</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Parameter 3 (Flagged Low) -->
+          <div class="card" style="border-left:4px solid var(--color-semantic-warn);">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <h4 style="font-size:14px; font-weight:600;">Vitamin D (25-OH)</h4>
+                <span style="font-size:11px; color:#6B7280;">Ref: 30 - 100 ng/mL</span>
+              </div>
+              <div style="text-align:right;">
+                <strong style="font-size:16px; color:var(--color-semantic-warn);">19 ng/mL</strong>
+                <span style="display:block; font-size:10px; font-weight:700; color:var(--color-semantic-warn); text-transform:uppercase;">Low</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="padding:10px 12px; background:#FDF2F2; border-radius:var(--radius-md);">
+            <p style="font-size:11px; color:#991B1B; line-height:1.4;">
+              🛡️ <strong>Safety Disclaimer:</strong> Hale is an educational assistant and does not provide medical diagnoses. Discuss these lab parameters with your doctor.
+            </p>
+          </div>
+        </div>
+
+        <div class="tab-bar">
+          <div class="tab-item" onclick="showScreen('screen-today')"><span style="font-size:18px;">🏠</span>Today</div>
+          <div class="tab-fab" onclick="showScreen('screen-capture')">+</div>
+          <div class="tab-item" onclick="showScreen('screen-chat')"><span style="font-size:18px;">💬</span>Coach</div>
+          <div class="tab-item active"><span style="font-size:18px;">📄</span>Reports</div>
+        </div>
+      </div>
+
+      <!-- 6. PARAMETER DETAIL & TREND -->
+      <div class="screen-view" id="m-screen-param-detail">
+        <div class="mobile-header">
+          <span style="font-size:14px; font-weight:600; cursor:pointer;" onclick="showScreen('screen-report-review')">← Reports</span>
+          <span style="font-size:12px; color:#6B7280;">Biomarker Trend</span>
+        </div>
+        <div class="screen-content">
+          <div>
+            <h2 style="font-size:20px; font-weight:700;">LDL Cholesterol</h2>
+            <p style="font-size:12px; color:#6B7280;">Metabolic lipid marker</p>
+          </div>
+
+          <!-- Current Value Card -->
+          <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:baseline;">
+              <span style="font-size:12px; color:#6B7280;">Latest (Sep 2026)</span>
+              <strong style="font-size:28px; color:var(--color-semantic-warn);">132 <span style="font-size:14px; font-weight:500;">mg/dL</span></strong>
+            </div>
+
+            <!-- Range Bar -->
+            <div style="margin-top:14px;">
+              <div style="display:flex; justify-content:space-between; font-size:11px; color:#6B7280; margin-bottom:4px;">
+                <span>Optimal (&lt; 100)</span>
+                <span>Borderline (100-159)</span>
+                <span>High (160+)</span>
+              </div>
+              <div style="height:10px; background:linear-gradient(to right, #2D6A4F 35%, #D97706 70%, #DC2626 100%); border-radius:5px; position:relative;">
+                <div style="width:4px; height:18px; background:#191C1E; position:absolute; left:52%; top:-4px; border-radius:2px;"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2-Point Historical Trend -->
+          <div class="card">
+            <h3 style="font-size:13px; font-weight:600; margin-bottom:8px;">Historical Trend</h3>
+            <svg width="100%" height="80" viewBox="0 0 300 80">
+              <line x1="40" y1="30" x2="260" y2="45" stroke="#D97706" stroke-width="3" stroke-linecap="round" />
+              <circle cx="40" cy="30" r="5" fill="#D97706" />
+              <circle cx="260" cy="45" r="5" fill="#D97706" />
+              <text x="40" y="20" font-size="11" font-weight="700" text-anchor="middle" fill="#191C1E">142</text>
+              <text x="40" y="70" font-size="10" text-anchor="middle" fill="#6B7280">Apr 2026</text>
+              <text x="260" y="35" font-size="11" font-weight="700" text-anchor="middle" fill="#191C1E">132 (-10)</text>
+              <text x="260" y="70" font-size="10" text-anchor="middle" fill="#6B7280">Sep 2026</text>
+            </svg>
+          </div>
+
+          <!-- What This Means & Goal Linked Action -->
+          <div class="card" style="background:#F0F7F2; border:1px solid #D1E5D7;">
+            <h3 style="font-size:13px; font-weight:700; color:var(--color-brand-primary);">WHAT THIS MEANS</h3>
+            <p style="font-size:12px; color:var(--color-text-secondary); margin-top:4px; line-height:1.45;">
+              LDL transports cholesterol in the bloodstream. Elevated levels are often influenced by saturated fats and processed snacks.
+            </p>
+            <div style="margin-top:10px; padding-top:10px; border-top:1px dashed #B8D8C2;">
+              <h4 style="font-size:12px; font-weight:700; color:var(--color-brand-primary);">GOAL-ALIGNED ACTION</h4>
+              <p style="font-size:12px; color:var(--color-brand-primary); margin-top:2px;">
+                Added to Today: <strong>"Swap 2 fried snacks a week for roasted chana."</strong> We track this habit against your fat loss goal.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 7. ASSISTANT CHAT -->
+      <div class="screen-view" id="m-screen-chat">
+        <div class="mobile-header">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <div style="width:32px; height:32px; background:var(--color-brand-primary); color:#FFFFFF; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px;">🌿</div>
+            <div>
+              <h3 style="font-size:14px; font-weight:700;">Hale Assistant</h3>
+              <span style="font-size:10px; color:#2D6A4F; font-weight:600;">● Grounded with your targets</span>
+            </div>
+          </div>
+          <span style="font-size:12px; color:#6B7280;">Clear</span>
+        </div>
+        <div class="screen-content" style="gap:12px;">
+          <!-- User bubble -->
+          <div style="align-self:flex-end; max-width:80%; background:var(--color-brand-primary); color:#FFFFFF; padding:10px 14px; border-radius:16px 16px 4px 16px; font-size:13px; line-height:1.4;">
+            I just had 2 rotis with a bowl of dal and some cucumber salad.
+          </div>
+
+          <!-- Assistant response with Tool Execution Card -->
+          <div style="align-self:flex-start; max-width:88%; display:flex; flex-direction:column; gap:6px;">
+            <div style="background:#FFFFFF; border:1px solid var(--color-border-subtle); padding:12px; border-radius:16px 16px 16px 4px; box-shadow:var(--shadow-card);">
+              <div style="display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+                <span style="font-size:10px; background:#D1FAE5; color:#065F46; padding:2px 6px; border-radius:4px; font-weight:700;">TOOL: LOGGED MEAL</span>
+                <span style="font-size:11px; color:#6B7280;">+420 kcal</span>
+              </div>
+              <p style="font-size:13px; color:var(--color-text-primary); line-height:1.45;">
+                Logged your lunch: <strong>2 rotis</strong> (240 kcal), <strong>yellow dal</strong> (160 kcal, 10g protein), and <strong>salad</strong> (20 kcal).
+              </p>
+              <div style="background:var(--color-bg-subtle); padding:8px 10px; border-radius:var(--radius-sm); margin-top:8px; font-size:12px; color:var(--color-brand-primary);">
+                🎯 <strong>Goal progress:</strong> You have 43g protein left to reach today's 95g target.
+              </div>
+            </div>
+          </div>
+
+          <!-- User question -->
+          <div style="align-self:flex-end; max-width:80%; background:var(--color-brand-primary); color:#FFFFFF; padding:10px 14px; border-radius:16px 16px 4px 16px; font-size:13px; line-height:1.4;">
+            What should I have for dinner to hit my protein goal?
+          </div>
+
+          <!-- Assistant response -->
+          <div style="align-self:flex-start; max-width:88%;">
+            <div style="background:#FFFFFF; border:1px solid var(--color-border-subtle); padding:12px; border-radius:16px 16px 16px 4px; box-shadow:var(--shadow-card); font-size:13px; line-height:1.45;">
+              You have <strong>540 kcal</strong> and <strong>43g protein</strong> remaining. Here are 2 high-protein options that fit your deficit:
+              <ul style="margin: 8px 0 0 16px; font-size:12px; color:#374151;">
+                <li><strong>Paneer Bhurji (150g) + 1 Multigrain Roti:</strong> ~380 kcal, 32g protein.</li>
+                <li><strong>Soya Chunks Curry + Cucumber Raita:</strong> ~340 kcal, 36g protein.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chat Input Bar -->
+        <div style="padding:12px 16px; background:#FFFFFF; border-top:1px solid var(--color-border-subtle); display:flex; gap:8px; align-items:center;">
+          <input type="text" placeholder="Ask or speak what you ate..." style="flex:1; border:1px solid var(--color-border-subtle); background:var(--color-bg-subtle); padding:10px 14px; border-radius:var(--radius-full); font-size:13px; outline:none;" />
+          <button style="width:36px; height:36px; border-radius:50%; background:var(--color-brand-primary); border:none; color:#FFFFFF; font-size:14px; cursor:pointer;">🎙</button>
+        </div>
+
+        <div class="tab-bar">
+          <div class="tab-item" onclick="showScreen('screen-today')"><span style="font-size:18px;">🏠</span>Today</div>
+          <div class="tab-fab" onclick="showScreen('screen-capture')">+</div>
+          <div class="tab-item active"><span style="font-size:18px;">💬</span>Coach</div>
+          <div class="tab-item" onclick="showScreen('screen-report-review')"><span style="font-size:18px;">📄</span>Reports</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DESKTOP FRAME (Hidden until toggled) -->
+    <div class="device-frame-desktop" id="desktop-frame" style="display:none;">
+      <!-- Desktop Sidebar -->
+      <aside class="desktop-sidebar">
+        <div class="brand-title">
+          🌿 Hale
+        </div>
+        <nav style="display:flex; flex-direction:column; gap:6px;">
+          <div class="desktop-nav-item active" onclick="showScreen('screen-today')">🏠 Today</div>
+          <div class="desktop-nav-item" onclick="showScreen('screen-chat')">💬 Coach Assistant</div>
+          <div class="desktop-nav-item" onclick="showScreen('screen-report-review')">📄 Health Reports</div>
+          <div class="desktop-nav-item" onclick="showScreen('screen-plan')">🎯 My Target Plan</div>
+        </nav>
+        <div style="margin-top:auto;">
+          <button class="btn-primary" style="padding:10px 14px; font-size:13px;" onclick="showScreen('screen-capture')">
+            + Quick Log Food
+          </button>
+        </div>
+      </aside>
+
+      <!-- Desktop Main Content -->
+      <section class="desktop-content-area" id="desktop-content">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <h1 style="font-size:24px; font-weight:700;">Today's Health Coach</h1>
+            <p style="font-size:13px; color:#6B7280;">Desktop Responsive View (Adaptive Modal System)</p>
+          </div>
+          <div style="display:flex; gap:12px; align-items:center;">
+            <span style="font-size:13px; font-weight:700; color:var(--color-brand-accent);">🔥 4 Day Streak</span>
+            <button class="btn-secondary" onclick="alert('Reviewer sample mode toggle')">⚙️ Demo Mode</button>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 2fr 1fr; gap:20px;">
+          <div style="display:flex; flex-direction:column; gap:16px;">
+            <!-- Next Best Action -->
+            <div class="card" style="background:#1B4931; color:#FFFFFF;">
+              <span style="font-size:11px; background:rgba(255,255,255,0.2); padding:2px 6px; border-radius:4px; font-weight:700;">NEXT BEST ACTION</span>
+              <h3 style="font-size:17px; font-weight:600; margin:8px 0 4px;">Lunch not logged yet</h3>
+              <p style="font-size:13px; opacity:0.9; margin-bottom:12px;">Take 10s to log lunch via voice or quick text.</p>
+              <button class="btn-primary" style="background:#FFFFFF; color:#1B4931; width:auto; display:inline-flex;" onclick="showScreen('screen-capture')">
+                🎙 Log Lunch Now
+              </button>
+            </div>
+
+            <!-- Rings & Macros -->
+            <div class="card">
+              <h3 style="font-size:15px; font-weight:600; margin-bottom:12px;">Daily Calorie & Macro Balance</h3>
+              <div class="ring-container">
+                <svg width="110" height="110" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="40" stroke="#F3F4EE" stroke-width="10" fill="none" />
+                  <circle cx="50" cy="50" r="40" stroke="#1B4931" stroke-width="10" fill="none"
+                          stroke-dasharray="251.2" stroke-dashoffset="130" stroke-linecap="round" />
+                  <text x="50" y="47" text-anchor="middle" font-size="16" font-weight="700" fill="#191C1E">890</text>
+                  <text x="50" y="60" text-anchor="middle" font-size="9" fill="#6B7280">/ 1,850 kcal</text>
+                </svg>
+                <div style="flex:1; display:flex; flex-direction:column; gap:10px;">
+                  <div>
+                    <div style="display:flex; justify-content:space-between; font-size:12px;">
+                      <span>Protein (Target 95g)</span>
+                      <strong>42g (53g remaining)</strong>
+                    </div>
+                    <div class="macro-bar-track"><div class="macro-bar-fill" style="width:44%; background:#2D6A4F;"></div></div>
+                  </div>
+                  <div>
+                    <div style="display:flex; justify-content:space-between; font-size:12px;">
+                      <span>Carbs (Target 208g)</span>
+                      <strong>105g (103g remaining)</strong>
+                    </div>
+                    <div class="macro-bar-track"><div class="macro-bar-fill" style="width:50%; background:#1B4931;"></div></div>
+                  </div>
+                  <div>
+                    <div style="display:flex; justify-content:space-between; font-size:12px;">
+                      <span>Fats (Target 68g)</span>
+                      <strong>34g (34g remaining)</strong>
+                    </div>
+                    <div class="macro-bar-track"><div class="macro-bar-fill" style="width:50%; background:#D97706;"></div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Column: Biomarkers & Insights -->
+          <div style="display:flex; flex-direction:column; gap:16px;">
+            <div class="card" style="background:#FBF8F4; border-left:4px solid var(--color-brand-accent);">
+              <h4 style="font-size:12px; font-weight:700; color:var(--color-brand-accent);">COACH INSIGHT</h4>
+              <p style="font-size:12px; line-height:1.45; margin-top:4px;">
+                "You have 53g protein to go. Having Greek yogurt, sprouts, or paneer with lunch makes hitting 95g effortless."
+              </p>
+            </div>
+
+            <div class="card">
+              <h4 style="font-size:13px; font-weight:600;">Flagged Biomarkers</h4>
+              <div style="margin-top:8px; padding:8px; background:var(--color-bg-canvas); border-radius:var(--radius-md);">
+                <div style="display:flex; justify-content:space-between; font-size:12px;">
+                  <span>LDL Cholesterol</span>
+                  <strong style="color:var(--color-semantic-warn);">132 mg/dL</strong>
+                </div>
+                <span style="font-size:10px; color:#6B7280;">Linked habit active on Today</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+  </main>
+
+  <script>
+    let currentScreen = 'screen-plan';
+    let currentViewport = 'mobile';
+
+    function showScreen(screenId) {
+      currentScreen = screenId;
+      // Update nav buttons
+      document.querySelectorAll('.nav-tab-btn').forEach(btn => btn.classList.remove('active'));
+      const activeBtn = Array.from(document.querySelectorAll('.nav-tab-btn')).find(b => b.getAttribute('onclick')?.includes(screenId));
+      if (activeBtn) activeBtn.classList.add('active');
+
+      // Update mobile screens
+      document.querySelectorAll('.screen-view').forEach(view => view.classList.remove('active'));
+      const targetView = document.getElementById('m-' + screenId);
+      if (targetView) targetView.classList.add('active');
+    }
+
+    function setViewport(mode) {
+      currentViewport = mode;
+      const mobileFrame = document.getElementById('mobile-frame');
+      const desktopFrame = document.getElementById('desktop-frame');
+      const btnMobile = document.getElementById('btn-mobile');
+      const btnDesktop = document.getElementById('btn-desktop');
+
+      if (mode === 'mobile') {
+        mobileFrame.style.display = 'flex';
+        desktopFrame.style.display = 'none';
+        btnMobile.classList.add('active');
+        btnDesktop.classList.remove('active');
+      } else {
+        mobileFrame.style.display = 'none';
+        desktopFrame.style.display = 'flex';
+        btnDesktop.classList.add('active');
+        btnMobile.classList.remove('active');
+      }
+    }
+  </script>
+</body>
+</html>
+
