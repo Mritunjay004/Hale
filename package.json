@@ -1,0 +1,25 @@
+{
+  "name": "hale-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Personal health assistant monorepo",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm --workspace=@hale/api run dev\" \"npm --workspace=@hale/mobile run start\"",
+    "dev:api": "npm --workspace=@hale/api run dev",
+    "dev:mobile": "npm --workspace=@hale/mobile run start",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "check:names": "./scripts/check-names.sh"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.4.5"
+  }
+}
+
