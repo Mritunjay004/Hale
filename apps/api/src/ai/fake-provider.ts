@@ -404,9 +404,8 @@ export class FakeAIProvider implements SpeechToTextProvider, VisionProvider, LLM
       else if (lastMsg.includes("ldl") || lastMsg.includes("cholesterol")) key = "ldl_cholesterol";
       else if (lastMsg.includes("glucose") || lastMsg.includes("sugar")) key = "fasting_glucose";
 
-      let toolRes: Record<string, unknown> = {};
       if (onToolCall) {
-        toolRes = await onToolCall("explain_biomarker", { biomarkerKey: key });
+        await onToolCall("explain_biomarker", { biomarkerKey: key });
       }
 
       if (key === "vitamin_d") {

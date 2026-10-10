@@ -6,6 +6,9 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@hale/shared": [
+        "../../packages/shared/src/index.ts"
       ]
     }
   },

@@ -12,7 +12,7 @@ import {
   reports,
   reportParameters,
 } from "../../infra/db/schema.js";
-import { eq, and, gte, lte, desc, inArray, asc } from "drizzle-orm";
+import { eq, and, gte, lte, desc, asc } from "drizzle-orm";
 import { aiProvider } from "../../ai/factory.js";
 
 export async function chatRoutes(app: FastifyInstance): Promise<void> {
