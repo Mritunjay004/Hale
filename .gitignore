@@ -35,10 +35,10 @@ yarn-error.log*
 pnpm-debug.log*
 *.log
 
-# Agent & local prompt files
+# Local agent, build plan, and internal files
 .cursor/
 .claude/
 CLAUDE.md
 health-assistant-build-plan.md
-
-
+scripts/
+docs/early-feedback-summary.md
