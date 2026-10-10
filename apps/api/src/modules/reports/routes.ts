@@ -4,11 +4,10 @@ import { authMiddleware } from "../../infra/auth.js";
 import { db } from "../../infra/db/connection.js";
 import { reports, reportParameters, focusHabits } from "../../infra/db/schema.js";
 import { eq, and, desc } from "drizzle-orm";
-import { FakeAIProvider } from "../../ai/fake-provider.js";
+import { inArray } from "drizzle-orm";
+import { aiProvider } from "../../ai/factory.js";
 import { CANONICAL_BIOMARKERS } from "@hale/shared";
 import { NotFoundError } from "../../infra/errors.js";
-
-const aiProvider = new FakeAIProvider();
 
 export async function reportRoutes(app: FastifyInstance): Promise<void> {
   app.addHook("preHandler", authMiddleware);
@@ -18,12 +17,19 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
    * Multimodal extraction of biomarkers from uploaded PDF or image.
    * Returns extracted parameters without saving (client review screen).
    */
-  app.post("/reports/extract", async (_request, reply) => {
-    // For now, accept multipart or JSON payload and use AI provider
-    const extracted = await aiProvider.extractReportDocument(
-      Buffer.from("dummy-report"),
-      "application/pdf"
-    );
+  app.post("/reports/extract", async (request, reply) => {
+    let fileBuffer = Buffer.from("sample-report");
+    let mimeType = "application/pdf";
+
+    if (request.body && typeof request.body === "object") {
+      const b = request.body as Record<string, unknown>;
+      if (typeof b.base64 === "string") {
+        fileBuffer = Buffer.from(b.base64, "base64");
+        mimeType = (b.mimeType as string) || "image/jpeg";
+      }
+    }
+
+    const extracted = await aiProvider.extractReportDocument(fileBuffer, mimeType);
     return reply.status(200).send(extracted);
   });
 
@@ -61,18 +67,25 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
     // Add accepted goal-linked habits to user's focus habits
     for (const habitKey of body.acceptedHabitKeys) {
       const biomarker = CANONICAL_BIOMARKERS[habitKey];
-      if (biomarker?.goalLinkedHabits.whenHigh) {
-        const h = biomarker.goalLinkedHabits.whenHigh;
-        await db.insert(focusHabits).values({
-          id: crypto.randomUUID(),
-          userId,
-          type: `biomarker_${biomarker.key}`,
-          title: h.title,
-          why: `${biomarker.name} was elevated in your report. ${h.why}`,
-          metric: h.metric,
-          source: "report",
-          active: true,
-        });
+      if (biomarker) {
+        const param = body.parameters.find((p) => p.canonicalKey === habitKey);
+        const isLow = param?.status === "low";
+        const h = isLow
+          ? biomarker.goalLinkedHabits.whenLow ?? biomarker.goalLinkedHabits.whenHigh
+          : biomarker.goalLinkedHabits.whenHigh ?? biomarker.goalLinkedHabits.whenLow;
+
+        if (h) {
+          await db.insert(focusHabits).values({
+            id: crypto.randomUUID(),
+            userId,
+            type: `biomarker_${biomarker.key}`,
+            title: h.title,
+            why: `${biomarker.name} was ${param?.status ?? "flagged"} in your report. ${h.why}`,
+            metric: h.metric,
+            source: "report",
+            active: true,
+          });
+        }
       }
     }
 
@@ -81,7 +94,7 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
 
   /**
    * GET /v1/reports
-   * List all reports for current user.
+   * List all reports for current user including parameter breakdown.
    */
   app.get("/reports", async (request, reply) => {
     const userId = request.userId;
@@ -89,9 +102,53 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
       .select()
       .from(reports)
       .where(eq(reports.userId, userId))
-      .orderBy(desc(reports.createdAt));
+      .orderBy(desc(reports.reportDate));
 
-    return reply.status(200).send(userReports);
+    const reportIds = userReports.map((r) => r.id);
+    const paramsByReportId = new Map<string, Array<{
+      id: string;
+      canonicalKey: string | null;
+      name: string;
+      value: number;
+      unit: string;
+      refLow: number | null;
+      refHigh: number | null;
+      status: "low" | "normal" | "high" | "unknown";
+    }>>();
+
+    if (reportIds.length > 0) {
+      const allParams = await db
+        .select()
+        .from(reportParameters)
+        .where(inArray(reportParameters.reportId, reportIds));
+
+      for (const p of allParams) {
+        const arr = paramsByReportId.get(p.reportId) ?? [];
+        arr.push({
+          id: p.id,
+          canonicalKey: p.canonicalKey,
+          name: p.name,
+          value: p.value,
+          unit: p.unit,
+          refLow: p.refLow,
+          refHigh: p.refHigh,
+          status: p.status as "low" | "normal" | "high" | "unknown",
+        });
+        paramsByReportId.set(p.reportId, arr);
+      }
+    }
+
+    const result = userReports.map((r) => ({
+      id: r.id,
+      userId: r.userId,
+      reportDate: r.reportDate,
+      label: r.label,
+      status: r.status,
+      createdAt: r.createdAt.toISOString(),
+      parameters: paramsByReportId.get(r.id) ?? [],
+    }));
+
+    return reply.status(200).send(result);
   });
 
   /**
