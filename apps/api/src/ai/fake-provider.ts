@@ -339,20 +339,131 @@ export class FakeAIProvider implements SpeechToTextProvider, VisionProvider, LLM
 
   async chatStream(
     messages: Array<{ role: "user" | "assistant" | "system"; content: string }>,
-    _groundedContext: Record<string, unknown>,
+    groundedContext: Record<string, unknown>,
     onChunk: (delta: string) => void,
     onToolCall?: (toolName: string, args: Record<string, unknown>) => Promise<Record<string, unknown>>
   ): Promise<string> {
     const lastMsg = messages[messages.length - 1]?.content.toLowerCase() ?? "";
 
-    if ((lastMsg.includes("had") || lastMsg.includes("ate") || lastMsg.includes("log")) && onToolCall) {
-      await onToolCall("log_meal", { text: lastMsg });
-      const response = "I've parsed and logged that meal for you. Your daily progress rings have been updated!";
+    // 1. Safety Guardrail: Extreme Calorie Restriction / Starvation
+    if (
+      lastMsg.includes("eat 500") ||
+      lastMsg.includes("800 calorie") ||
+      lastMsg.includes("starve") ||
+      lastMsg.includes("extreme deficit")
+    ) {
+      const response =
+        "As your clinical coach, I strongly advise against dropping below 1,200–1,500 kcal/day. Severe deficits cause your resting metabolic rate to downshift and lead to lean muscle wasting. Let's aim for a steady, sustainable 300–500 kcal deficit that keeps your energy elevated without metabolic adaptation.";
       onChunk(response);
       return response;
     }
 
-    const reply = "You're doing great today! You have ~450 kcal and 32g protein remaining for dinner. Let me know if you'd like a quick high-protein dinner recommendation.";
+    // 2. Safety Guardrail: Emergency / Prescription Medical Claims
+    if (
+      lastMsg.includes("chest pain") ||
+      lastMsg.includes("insulin dose") ||
+      lastMsg.includes("prescribe") ||
+      lastMsg.includes("heart attack")
+    ) {
+      const response =
+        "Please note: Hale is a wellness and nutritional assistant, not an emergency medical provider. If you are experiencing acute medical symptoms or need prescription adjustments, please contact emergency medical services or consult your primary healthcare physician immediately.";
+      onChunk(response);
+      return response;
+    }
+
+    // 3. Tool: Log Meal
+    if (
+      (lastMsg.includes("had") ||
+        lastMsg.includes("ate") ||
+        lastMsg.includes("log") ||
+        lastMsg.includes("drank") ||
+        lastMsg.includes("breakfast was") ||
+        lastMsg.includes("lunch was") ||
+        lastMsg.includes("dinner was")) &&
+      onToolCall
+    ) {
+      const cleanText = lastMsg.replace(/^log\s*:?\s*/i, "");
+      const toolRes = await onToolCall("log_meal", { text: cleanText });
+      const summaryText = (toolRes as any)?.summary || "Meal successfully logged";
+      const response = `I've logged that for you! ✨ ${summaryText}. Your daily calorie and protein rings on the Today screen have been updated.`;
+      onChunk(response);
+      return response;
+    }
+
+    // 4. Tool: Explain Biomarker
+    if (
+      lastMsg.includes("vitamin d") ||
+      lastMsg.includes("hba1c") ||
+      lastMsg.includes("ldl") ||
+      lastMsg.includes("cholesterol") ||
+      lastMsg.includes("glucose") ||
+      lastMsg.includes("ferritin")
+    ) {
+      let key = "vitamin_d";
+      if (lastMsg.includes("hba1c") || lastMsg.includes("a1c")) key = "hba1c";
+      else if (lastMsg.includes("ldl") || lastMsg.includes("cholesterol")) key = "ldl_cholesterol";
+      else if (lastMsg.includes("glucose") || lastMsg.includes("sugar")) key = "fasting_glucose";
+
+      let toolRes: Record<string, unknown> = {};
+      if (onToolCall) {
+        toolRes = await onToolCall("explain_biomarker", { biomarkerKey: key });
+      }
+
+      if (key === "vitamin_d") {
+        const response =
+          "Vitamin D (25-OH) is a critical pro-hormone that regulates calcium absorption and mitochondrial energy. When your levels are low (<30 ng/mL), you often experience afternoon fatigue (the 3 PM slump) and mood dips. Getting 15 minutes of direct morning sunlight and eating egg yolks or fortified dairy helps steadily restore normal vitality.";
+        onChunk(response);
+        return response;
+      }
+
+      if (key === "ldl_cholesterol") {
+        const response =
+          "LDL Cholesterol carries lipids through your bloodstream. Elevated LDL (>100 mg/dL) can accumulate in arterial walls over time. The most effective nutrition habit is increasing soluble fiber (oats, legumes, roasted chana) and swapping out hydrogenated frying oils.";
+        onChunk(response);
+        return response;
+      }
+
+      const response =
+        "Biomarkers reflect your underlying metabolic state. Keeping them in their clinical reference range directly supports day-to-day energy, stable mood, and deep restorative sleep.";
+      onChunk(response);
+      return response;
+    }
+
+    // 5. Tool: Suggest Meal for Remaining Macros
+    if (
+      lastMsg.includes("what should i eat") ||
+      lastMsg.includes("dinner") ||
+      lastMsg.includes("suggest") ||
+      lastMsg.includes("protein") ||
+      lastMsg.includes("recommend")
+    ) {
+      const remainingProtein = (groundedContext as any)?.remainingProteinG ?? 32;
+      const remainingKcal = (groundedContext as any)?.remainingKcal ?? 520;
+
+      if (onToolCall) {
+        await onToolCall("suggest_meal", {
+          remainingKcal,
+          remainingProteinG: remainingProtein,
+        });
+      }
+
+      const response = `You currently have ~${remainingKcal} kcal and ${remainingProtein}g of protein remaining today. Here is a high-protein recommendation to hit your target effortlessly:
+
+• 150g Grilled Paneer or Chicken Breast (28g Protein, ~240 kcal)
+• 1 katori Yellow Moong / Toor Dal (7g Protein, ~130 kcal)
+• 1 Whole Wheat Roti or 1 cup steamed brown rice (3g Protein, ~120 kcal)
+
+This meal provides ~38g protein and fits perfectly within your target balance!`;
+      onChunk(response);
+      return response;
+    }
+
+    // Default grounded supportive answer
+    const currentProtein = (groundedContext as any)?.currentProteinG ?? 45;
+    const targetProtein = (groundedContext as any)?.targetProteinG ?? 95;
+    const remainingKcal = (groundedContext as any)?.remainingKcal ?? 600;
+
+    const reply = `You're tracking well today! You have consumed ${currentProtein}g / ${targetProtein}g protein so far, with ~${remainingKcal} kcal remaining. Would you like a dinner idea or need help explaining any lab markers?`;
     onChunk(reply);
     return reply;
   }

@@ -5,7 +5,13 @@ export const chatRoleEnum = z.enum(["user", "assistant", "system"]);
 
 export const toolCallSchema = z.object({
   id: z.string(),
-  name: z.enum(["log_meal", "get_summary", "get_report_parameters"]),
+  name: z.enum([
+    "log_meal",
+    "get_summary",
+    "get_report_parameters",
+    "explain_biomarker",
+    "suggest_meal",
+  ]),
   arguments: z.record(z.unknown()),
   result: z
     .object({

@@ -160,11 +160,38 @@ Return JSON: { "text": string, "why": string, "tip": string }`;
   }
 
   async chatStream(
-    _messages: Array<{ role: "user" | "assistant" | "system"; content: string }>,
-    _groundedContext: Record<string, unknown>,
-    _onChunk: (delta: string) => void
+    messages: Array<{ role: "user" | "assistant" | "system"; content: string }>,
+    groundedContext: Record<string, unknown>,
+    onChunk: (delta: string) => void
   ): Promise<string> {
-    throw new Error("Chat stream via Gemini not implemented yet");
+    const systemInstruction = `You are an expert clinical nutritional assistant for the Hale Health app.
+Be empathetic, motivating, and concise (max 3 short paragraphs).
+You have access to the user's live profile, today's targets, consumed totals, and lab reports:
+${JSON.stringify(groundedContext, null, 2)}
+
+Safety Guardrails:
+1. If the user asks for extreme calorie deficits (< 1200 kcal for women, < 1500 kcal for men), provide kind clinical pushback explaining metabolic adaptation.
+2. If the user asks about emergency conditions or prescription drug dosages, provide a safe medical disclaimer.
+
+Indian Portions context:
+- Katori = 150ml
+- Medium roti = ~120 kcal, 3g P, 22g C, 2g F
+- Cup = 240ml`;
+
+    const model = this.client.getGenerativeModel({
+      model: this.primaryModel,
+      systemInstruction,
+    });
+
+    const lastMsg = messages[messages.length - 1]?.content ?? "Hello";
+    const result = await model.generateContentStream(lastMsg);
+    let fullText = "";
+    for await (const chunk of result.stream) {
+      const text = chunk.text();
+      fullText += text;
+      onChunk(text);
+    }
+    return fullText;
   }
 }
 
