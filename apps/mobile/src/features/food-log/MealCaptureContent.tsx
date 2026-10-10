@@ -209,13 +209,32 @@ export function MealCaptureContent({ onParsed, onClose }: CaptureSheetProps) {
     });
 
     if (!result.canceled && result.assets[0]) {
+      setAnalyzingMessage("Analyzing plate photo with AI...");
       setAnalyzing(true);
       try {
-        // Parse simulated plate image via backend
-        const parsed = await api.post<ParsedMeal>("/meals/parse", {
-          text: "plate photo: dal, rice and sabzi",
-          clientTimestamp: new Date().toISOString(),
-        });
+        const asset = result.assets[0];
+        const formData = new FormData();
+        if (Platform.OS === "web") {
+          const imgBlob = await (await fetch(asset.uri)).blob();
+          formData.append("file", imgBlob, "plate.jpg");
+        } else {
+          formData.append("file", {
+            uri: asset.uri,
+            name: "plate.jpg",
+            type: asset.mimeType || "image/jpeg",
+          } as unknown as Blob);
+        }
+
+        const parsed = await api.uploadFormData<ParsedMeal>("/meals/parse-image", formData);
+
+        if (!parsed.isFood) {
+          Alert.alert(
+            "Food Not Detected",
+            parsed.clarifyingQuestion ?? "That doesn't look like food. Please try taking another photo."
+          );
+          return;
+        }
+
         onParsed(parsed, "camera", "Plate photo capture");
       } catch (err) {
         console.error(err);

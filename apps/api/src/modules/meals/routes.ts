@@ -57,6 +57,32 @@ export async function mealRoutes(app: FastifyInstance): Promise<void> {
   });
 
   /**
+   * POST /v1/meals/parse-image
+   * Accepts multipart plate photo upload (jpeg, png, heic),
+   * identifies food items with multimodal Gemini vision, and returns parsed meal breakdown.
+   */
+  app.post("/meals/parse-image", async (request, reply) => {
+    const data = await request.file();
+    if (!data) {
+      return reply.status(400).send({
+        code: "VALIDATION_ERROR",
+        message: "Image file is required in multipart field 'file'",
+      });
+    }
+
+    const imageBuffer = await data.toBuffer();
+    const mimeType = data.mimetype || "image/jpeg";
+
+    const parsed = await aiProvider.parseMealImage(
+      imageBuffer,
+      mimeType,
+      "Food plate photograph"
+    );
+
+    return reply.status(200).send(parsed);
+  });
+
+  /**
    * POST /v1/meals
    * Save a confirmed meal (idempotent via idempotencyKey).
    */
