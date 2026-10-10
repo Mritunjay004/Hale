@@ -11,6 +11,10 @@ export default function OnboardingLayout() {
       }}
     >
       <Stack.Screen name="welcome" />
+      <Stack.Screen name="about" />
+      <Stack.Screen name="goal" />
+      <Stack.Screen name="lifestyle" />
+      <Stack.Screen name="plan" />
     </Stack>
   );
 }
