@@ -5,11 +5,27 @@ import { useBreakpoint } from "../../src/lib/breakpoint";
 import { colors, spacing, radius, typography, shadows } from "../../src/theme/tokens";
 import { ResponsiveSheet } from "../../src/ui/ResponsiveSheet";
 import { Button } from "../../src/ui/Button";
+import { MealCaptureContent } from "../../src/features/food-log/MealCaptureContent";
+import { MealConfirmationContent } from "../../src/features/food-log/MealConfirmationContent";
+import type { ParsedMeal, MealSource } from "@hale/shared";
 
 export default function TabsLayout() {
   const { isDesktop } = useBreakpoint();
   const [logSheetVisible, setLogSheetVisible] = useState(false);
+  const [parsedMeal, setParsedMeal] = useState<ParsedMeal | null>(null);
+  const [mealSource, setMealSource] = useState<MealSource>("voice");
+  const [rawInput, setRawInput] = useState<string | undefined>(undefined);
   const router = useRouter();
+
+  const handleOpenSheet = () => {
+    setParsedMeal(null);
+    setLogSheetVisible(true);
+  };
+
+  const handleCloseSheet = () => {
+    setLogSheetVisible(false);
+    setParsedMeal(null);
+  };
 
   return (
     <>
@@ -37,7 +53,7 @@ export default function TabsLayout() {
             title: "",
             tabBarButton: () => (
               <Pressable
-                onPress={() => setLogSheetVisible(true)}
+                onPress={handleOpenSheet}
                 style={styles.fabContainer}
                 accessibilityRole="button"
                 accessibilityLabel="Log Food"
@@ -51,7 +67,7 @@ export default function TabsLayout() {
           listeners={{
             tabPress: (e) => {
               e.preventDefault();
-              setLogSheetVisible(true);
+              handleOpenSheet();
             },
           }}
         />
@@ -73,45 +89,30 @@ export default function TabsLayout() {
         />
       </Tabs>
 
-      {/* Global Capture ResponsiveSheet */}
+      {/* Global Capture & Confirmation ResponsiveSheet */}
       <ResponsiveSheet
         visible={logSheetVisible}
-        onClose={() => setLogSheetVisible(false)}
-        title="Log Meal (Under 10s)"
+        onClose={handleCloseSheet}
+        title={parsedMeal ? "Confirm Meal" : "Log Meal (Under 10s)"}
       >
-        <View style={styles.sheetContent}>
-          <View style={styles.voiceHero}>
-            <Pressable
-              style={styles.micCircle}
-              onPress={() => {
-                setLogSheetVisible(false);
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Start voice recording"
-            >
-              <Text style={{ fontSize: 32 }}>🎙</Text>
-            </Pressable>
-            <Text style={styles.voiceTitle}>Tap to speak your meal</Text>
-            <Text style={styles.voiceSub}>
-              "Two rotis, bowl of dal, and cucumber salad"
-            </Text>
-          </View>
-
-          <View style={styles.actionRow}>
-            <Button
-              label="📷 Snap Plate"
-              variant="secondary"
-              onPress={() => setLogSheetVisible(false)}
-              style={{ flex: 1 }}
-            />
-            <Button
-              label="⌨️ Quick Type"
-              variant="secondary"
-              onPress={() => setLogSheetVisible(false)}
-              style={{ flex: 1 }}
-            />
-          </View>
-        </View>
+        {parsedMeal ? (
+          <MealConfirmationContent
+            parsedMeal={parsedMeal}
+            source={mealSource}
+            rawInput={rawInput}
+            onSaved={handleCloseSheet}
+            onBack={() => setParsedMeal(null)}
+          />
+        ) : (
+          <MealCaptureContent
+            onParsed={(meal, source, raw) => {
+              setParsedMeal(meal);
+              setMealSource(source);
+              setRawInput(raw);
+            }}
+            onClose={handleCloseSheet}
+          />
+        )}
       </ResponsiveSheet>
     </>
   );

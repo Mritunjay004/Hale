@@ -14,6 +14,8 @@ export default function TodayScreen() {
     queryFn: () => api.get<TodayResponse>("/today"),
   });
 
+  const [isSeeding, setIsSeeding] = React.useState(false);
+
   if (isLoading) {
     return (
       <View style={styles.container}>
@@ -35,13 +37,18 @@ export default function TodayScreen() {
           Complete your 90-second onboarding to receive your personalized health plan.
         </Text>
         <Button
-          label="Try With Demo Data"
+          label={isSeeding ? "Seeding Demo Data..." : "Try With Demo Data"}
+          loading={isSeeding}
+          disabled={isSeeding}
           onPress={async () => {
+            setIsSeeding(true);
             try {
               await api.post("/dev/seed-demo");
-              void refetch();
+              await refetch();
             } catch (err) {
-              console.error(err);
+              console.error("Failed to seed demo data:", err);
+            } finally {
+              setIsSeeding(false);
             }
           }}
           style={{ marginTop: spacing.lg }}

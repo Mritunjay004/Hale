@@ -1,8 +1,20 @@
+import { Platform } from "react-native";
 import { getSecureItem, setSecureItem } from "./secure-storage";
 import type { SessionResponse } from "@hale/shared";
 
-const API_BASE_URL =
-  process.env["EXPO_PUBLIC_API_URL"] ?? "http://localhost:3001/v1";
+function getBaseUrl(): string {
+  if (process.env["EXPO_PUBLIC_API_URL"]) {
+    return process.env["EXPO_PUBLIC_API_URL"];
+  }
+  // On web running in browser, connect to localhost:3001
+  if (Platform.OS === "web") {
+    return "http://localhost:3001/v1";
+  }
+  // On physical Android device, connect to local network IP
+  return "http://192.168.1.82:3001/v1";
+}
+
+const API_BASE_URL = getBaseUrl();
 
 const SESSION_TOKEN_KEY = "hale_session_token";
 const DEVICE_SECRET_KEY = "hale_device_secret";
@@ -50,7 +62,7 @@ class ApiClient {
     const token = await this.getToken();
     const headers = new Headers(options.headers);
     headers.set("Authorization", `Bearer ${token}`);
-    if (!headers.has("Content-Type") && !(options.body instanceof FormData)) {
+    if (options.body && !headers.has("Content-Type") && !(options.body instanceof FormData)) {
       headers.set("Content-Type", "application/json");
     }
 

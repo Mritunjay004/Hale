@@ -1,8 +1,21 @@
 # Product Brief: Hale (Personal Health Assistant)
 
 > Working App Name: **Hale**  
-> Document Version: 1.0 (Milestone 0)  
-> Status: Awaiting Human Gate A Early Feedback
+> Document Version: 1.1 (Post-Gate A Feedback)  
+> Status: Gate A Feedback Incorporated (Aseem Gupta Review)
+
+---
+
+## Changes from Early Feedback (Gate A)
+
+Feedback received from product review highlighted two key opportunities:
+1. **Deeper Daily "WHY" (Symptom & Energy Connection):**
+   - Don't just show the clinical number or abstract health definition (e.g. "Vitamin D helps bones").
+   - Explicitly connect blood markers and meal timing to **daily subjective well-being**: energy levels, afternoon slumps, mood uplift, and recovery.
+   - *Action:* Updated the 25-biomarker dictionary and Today insight engine with direct real-world symptom links (e.g. low Vitamin D → midday fatigue and mood slumps; early dinner → deep REM sleep and morning alertness).
+2. **Motivation & Achievement Framework:**
+   - Habit adherence requires positive reinforcement that avoids casino-style gamification.
+   - *Action:* Added a dedicated **Achievements & Milestones System** with 6 meaningful milestone badges (First Log, 3-Day Consistency, 7-Day Habit, Protein Master, Biomarker Linked, First Voice Log), accessible via a delight sheet from the streak badge on Today.
 
 ---
 

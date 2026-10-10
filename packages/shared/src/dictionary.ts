@@ -157,11 +157,11 @@ export const CANONICAL_BIOMARKERS: Record<string, CanonicalBiomarkerDefinition> 
     synonyms: ["vitamin d3", "25-hydroxy vitamin d", "vit d", "25-oh vit d"],
     referenceRange: { low: 30, high: 100 },
     explanation:
-      "Crucial for calcium absorption, bone strength, immune defense, and testosterone/hormone balance.",
+      "Directly influences daily vitality, serotonin synthesis, and morning wakefulness. Low levels often manifest as unexplained brain fog, sluggish afternoon energy, and low mood.",
     goalLinkedHabits: {
       whenLow: {
-        title: "Morning sunlight walk & fortified foods",
-        why: "15 minutes of direct morning sunlight paired with dietary sources supports baseline vitamin D.",
+        title: "15-min morning sunlight walk & fortified foods",
+        why: "Bringing Vitamin D into the optimal zone uplifts daily mood, sharpens focus, and eliminates unexplained chronic fatigue.",
         metric: "Outdoor morning habit",
       },
     },

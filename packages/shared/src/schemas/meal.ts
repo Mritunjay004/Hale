@@ -20,7 +20,7 @@ export const mealItemSchema = z.object({
   carbsG: z.number().nonnegative(),
   fatG: z.number().nonnegative(),
   confidence: confidenceEnum.default("high"),
-  alternatives: z.array(alternativeOptionSchema).optional(),
+  alternatives: z.array(alternativeOptionSchema).nullish(),
 });
 
 export const parsedMealSchema = z.object({
@@ -30,11 +30,11 @@ export const parsedMealSchema = z.object({
   proteinG: z.number().nonnegative(),
   carbsG: z.number().nonnegative(),
   fatG: z.number().nonnegative(),
-  confidence: confidenceEnum,
-  clarifyingQuestion: z.string().optional(),
+  confidence: confidenceEnum.default("high"),
+  clarifyingQuestion: z.string().nullish(),
   isFood: z.boolean().default(true),
   isSkipped: z.boolean().default(false),
-  impactSummary: z.string().optional(),
+  impactSummary: z.string().nullish(),
 });
 
 export const parseMealRequestSchema = z.object({
