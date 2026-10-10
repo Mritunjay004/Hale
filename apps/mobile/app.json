@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "Hale",
+    "slug": "hale-assistant",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#FBFBF9"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.hale.assistant",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Hale uses your microphone to transcribe meal logs in seconds.",
+        "NSCameraUsageDescription": "Hale uses your camera to identify food and parse blood report biomarkers."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#FBFBF9"
+      },
+      "package": "com.hale.assistant",
+      "permissions": [
+        "RECORD_AUDIO",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE"
+      ]
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store"
+    ],
+    "scheme": "hale"
+  }
+}
+
