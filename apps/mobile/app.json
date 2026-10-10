@@ -4,7 +4,6 @@
     "slug": "hale-assistant",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
       "backgroundColor": "#FBFBF9"
@@ -18,9 +17,6 @@
       }
     },
     "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#FBFBF9"
-      },
       "package": "com.hale.assistant",
       "permissions": [
         "RECORD_AUDIO",

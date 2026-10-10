@@ -1,4 +1,4 @@
-import { getSecureItem, setSecureItem } from "./secure-storage.js";
+import { getSecureItem, setSecureItem } from "./secure-storage";
 import type { SessionResponse } from "@hale/shared";
 
 const API_BASE_URL =

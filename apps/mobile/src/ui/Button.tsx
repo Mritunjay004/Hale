@@ -7,7 +7,7 @@ import {
   type ViewStyle,
   type TextStyle,
 } from "react-native";
-import { colors, spacing, radius, typography } from "../theme/tokens.js";
+import { colors, spacing, radius, typography } from "../theme/tokens";
 
 export interface ButtonProps {
   label: string;

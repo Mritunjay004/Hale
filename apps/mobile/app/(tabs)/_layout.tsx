@@ -1,10 +1,10 @@
 import React, { useState } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { Tabs, useRouter } from "expo-router";
-import { useBreakpoint } from "../../src/lib/breakpoint.js";
-import { colors, spacing, radius, typography, shadows } from "../../src/theme/tokens.js";
-import { ResponsiveSheet } from "../../src/ui/ResponsiveSheet.js";
-import { Button } from "../../src/ui/Button.js";
+import { useBreakpoint } from "../../src/lib/breakpoint";
+import { colors, spacing, radius, typography, shadows } from "../../src/theme/tokens";
+import { ResponsiveSheet } from "../../src/ui/ResponsiveSheet";
+import { Button } from "../../src/ui/Button";
 
 export default function TabsLayout() {
   const { isDesktop } = useBreakpoint();

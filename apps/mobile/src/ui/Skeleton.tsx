@@ -1,6 +1,6 @@
 import React from "react";
 import { View, StyleSheet, type ViewStyle } from "react-native";
-import { colors, radius } from "../theme/tokens.js";
+import { colors, radius } from "../theme/tokens";
 
 export interface SkeletonProps {
   width?: number | `${number}%`;

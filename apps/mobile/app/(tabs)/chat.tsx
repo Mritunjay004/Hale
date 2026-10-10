@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { colors, spacing, typography } from "../../src/theme/tokens.js";
+import { colors, spacing, typography } from "../../src/theme/tokens";
 
 export default function ChatScreen() {
   return (

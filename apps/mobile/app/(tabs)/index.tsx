@@ -1,11 +1,11 @@
 import React from "react";
 import { View, Text, ScrollView, StyleSheet } from "react-native";
 import { useQuery } from "@tanstack/react-query";
-import { api } from "../../src/lib/api-client.js";
-import { colors, spacing, radius, typography } from "../../src/theme/tokens.js";
-import { Card } from "../../src/ui/Card.js";
-import { Button } from "../../src/ui/Button.js";
-import { Skeleton } from "../../src/ui/Skeleton.js";
+import { api } from "../../src/lib/api-client";
+import { colors, spacing, radius, typography } from "../../src/theme/tokens";
+import { Card } from "../../src/ui/Card";
+import { Button } from "../../src/ui/Button";
+import { Skeleton } from "../../src/ui/Skeleton";
 import type { TodayResponse } from "@hale/shared";
 
 export default function TodayScreen() {

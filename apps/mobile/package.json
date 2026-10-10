@@ -2,7 +2,7 @@
   "name": "@hale/mobile",
   "version": "1.0.0",
   "description": "Cross-platform mobile and web client for Hale Personal Health Assistant",
-  "main": "expo-router/entry",
+  "main": "index.js",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",

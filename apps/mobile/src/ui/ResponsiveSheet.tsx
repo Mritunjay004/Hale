@@ -7,8 +7,8 @@ import {
   StyleSheet,
   type ViewStyle,
 } from "react-native";
-import { useBreakpoint } from "../lib/breakpoint.js";
-import { colors, spacing, radius, typography, shadows } from "../theme/tokens.js";
+import { useBreakpoint } from "../lib/breakpoint";
+import { colors, spacing, radius, typography, shadows } from "../theme/tokens";
 
 export interface ResponsiveSheetProps {
   visible: boolean;
