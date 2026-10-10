@@ -1,8 +1,8 @@
 import type { FastifyInstance } from "fastify";
 import { authMiddleware } from "../../infra/auth.js";
 import { db } from "../../infra/db/connection.js";
-import { profiles, meals, focusHabits, reports, reportParameters, weightEntries } from "../../infra/db/schema.js";
-import { eq, and, gte, lte, desc } from "drizzle-orm";
+import { profiles, meals, focusHabits, reports, reportParameters, weightEntries, mealItems } from "../../infra/db/schema.js";
+import { eq, and, gte, lte, desc, inArray } from "drizzle-orm";
 import { evaluateInsightRules } from "../../domain/insight-rules.js";
 import { calculateStreak } from "../../domain/streaks.js";
 import { NotFoundError } from "../../infra/errors.js";
@@ -43,7 +43,7 @@ export async function todayRoutes(app: FastifyInstance): Promise<void> {
         and(eq(meals.userId, userId), gte(meals.loggedAt, dayStart), lte(meals.loggedAt, dayEnd))
       );
 
-    // Sum today's totals
+    // Sum today's totals and collect items
     let currentKcal = 0;
     let currentProteinG = 0;
     let currentCarbsG = 0;
@@ -53,6 +53,41 @@ export async function todayRoutes(app: FastifyInstance): Promise<void> {
       currentProteinG += meal.proteinG;
       currentCarbsG += meal.carbsG;
       currentFatG += meal.fatG;
+    }
+
+    const mealIds = todayMeals.map((m) => m.id);
+    const itemsByMealId = new Map<string, Array<{
+      id?: string;
+      name: string;
+      quantity: number;
+      unit: string;
+      kcal: number;
+      proteinG: number;
+      carbsG: number;
+      fatG: number;
+      confidence: "high" | "medium" | "low";
+    }>>();
+
+    if (mealIds.length > 0) {
+      const dbItems = await db
+        .select()
+        .from(mealItems)
+        .where(inArray(mealItems.mealId, mealIds));
+      for (const item of dbItems) {
+        const arr = itemsByMealId.get(item.mealId) ?? [];
+        arr.push({
+          id: item.id,
+          name: item.name,
+          quantity: item.quantity,
+          unit: item.unit,
+          kcal: item.kcal,
+          proteinG: item.proteinG,
+          carbsG: item.carbsG,
+          fatG: item.fatG,
+          confidence: (item.confidence as "high" | "medium" | "low") ?? "high",
+        });
+        itemsByMealId.set(item.mealId, arr);
+      }
     }
 
     // Fetch habits
@@ -168,6 +203,8 @@ export async function todayRoutes(app: FastifyInstance): Promise<void> {
         mealType: m.mealType,
         source: m.source,
         loggedAt: m.loggedAt.toISOString(),
+        rawInput: m.rawInput ?? undefined,
+        items: itemsByMealId.get(m.id) ?? [],
         totalKcal: m.totalKcal,
         proteinG: m.proteinG,
         carbsG: m.carbsG,

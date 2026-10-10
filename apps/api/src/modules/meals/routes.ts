@@ -4,11 +4,8 @@ import { authMiddleware } from "../../infra/auth.js";
 import { db } from "../../infra/db/connection.js";
 import { meals, mealItems } from "../../infra/db/schema.js";
 import { eq, and, gte, lte } from "drizzle-orm";
-import { FakeAIProvider } from "../../ai/fake-provider.js";
+import { aiProvider } from "../../ai/factory.js";
 import { NotFoundError, ConflictError } from "../../infra/errors.js";
-
-// For now, always use the fake AI provider. Production will inject via composition root.
-const aiProvider = new FakeAIProvider();
 
 export async function mealRoutes(app: FastifyInstance): Promise<void> {
   app.addHook("preHandler", authMiddleware);

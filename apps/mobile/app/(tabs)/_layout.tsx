@@ -7,24 +7,36 @@ import { ResponsiveSheet } from "../../src/ui/ResponsiveSheet";
 import { Button } from "../../src/ui/Button";
 import { MealCaptureContent } from "../../src/features/food-log/MealCaptureContent";
 import { MealConfirmationContent } from "../../src/features/food-log/MealConfirmationContent";
+import { useQueryClient } from "@tanstack/react-query";
+import { useMealCaptureStore } from "../../src/features/food-log/useMealCaptureStore";
 import type { ParsedMeal, MealSource } from "@hale/shared";
 
 export default function TabsLayout() {
   const { isDesktop } = useBreakpoint();
-  const [logSheetVisible, setLogSheetVisible] = useState(false);
-  const [parsedMeal, setParsedMeal] = useState<ParsedMeal | null>(null);
-  const [mealSource, setMealSource] = useState<MealSource>("voice");
-  const [rawInput, setRawInput] = useState<string | undefined>(undefined);
+  const queryClient = useQueryClient();
+  const {
+    isOpen: logSheetVisible,
+    parsedMeal,
+    mealSource,
+    rawInput,
+    openCapture,
+    closeCapture,
+    setParsed,
+    resetToCapture,
+  } = useMealCaptureStore();
   const router = useRouter();
 
   const handleOpenSheet = () => {
-    setParsedMeal(null);
-    setLogSheetVisible(true);
+    openCapture();
   };
 
   const handleCloseSheet = () => {
-    setLogSheetVisible(false);
-    setParsedMeal(null);
+    closeCapture();
+  };
+
+  const handleSaved = () => {
+    closeCapture();
+    queryClient.invalidateQueries({ queryKey: ["today"] });
   };
 
   return (
@@ -100,15 +112,13 @@ export default function TabsLayout() {
             parsedMeal={parsedMeal}
             source={mealSource}
             rawInput={rawInput}
-            onSaved={handleCloseSheet}
-            onBack={() => setParsedMeal(null)}
+            onSaved={handleSaved}
+            onBack={resetToCapture}
           />
         ) : (
           <MealCaptureContent
             onParsed={(meal, source, raw) => {
-              setParsedMeal(meal);
-              setMealSource(source);
-              setRawInput(raw);
+              setParsed(meal, source, raw);
             }}
             onClose={handleCloseSheet}
           />
