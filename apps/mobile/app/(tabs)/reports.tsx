@@ -22,6 +22,7 @@ import {
   type ReportItem,
 } from "../../src/features/reports";
 import { lightImpact } from "../../src/lib/haptics";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type {
   ExtractedReportResponse,
   ParameterTrendResponse,
@@ -35,6 +36,7 @@ const TOP_BIOMARKERS = [
 ];
 
 export default function ReportsScreen() {
+  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const [selectedBiomarkerKey, setSelectedBiomarkerKey] = useState("vitamin_d");
   const [uploadSheetVisible, setUploadSheetVisible] = useState(false);
@@ -83,7 +85,10 @@ export default function ReportsScreen() {
     <>
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: Math.max(insets.top, 16) },
+        ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl

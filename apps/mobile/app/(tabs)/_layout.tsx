@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { Tabs, useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBreakpoint } from "../../src/lib/breakpoint";
 import { colors, spacing, radius, typography, shadows } from "../../src/theme/tokens";
+import { lightImpact } from "../../src/lib/haptics";
 import { ResponsiveSheet } from "../../src/ui/ResponsiveSheet";
 import { Button } from "../../src/ui/Button";
 import { MealCaptureContent } from "../../src/features/food-log/MealCaptureContent";
@@ -13,6 +15,7 @@ import type { ParsedMeal, MealSource } from "@hale/shared";
 
 export default function TabsLayout() {
   const { isDesktop } = useBreakpoint();
+  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const {
     isOpen: logSheetVisible,
@@ -27,6 +30,7 @@ export default function TabsLayout() {
   const router = useRouter();
 
   const handleOpenSheet = () => {
+    lightImpact();
     openCapture();
   };
 
@@ -44,7 +48,15 @@ export default function TabsLayout() {
       <Tabs
         screenOptions={{
           headerShown: false,
-          tabBarStyle: isDesktop ? styles.desktopHidden : styles.tabBar,
+          tabBarStyle: isDesktop
+            ? styles.desktopHidden
+            : [
+                styles.tabBar,
+                {
+                  height: 58 + insets.bottom,
+                  paddingBottom: Math.max(insets.bottom, 6),
+                },
+              ],
           tabBarActiveTintColor: colors.brand.primary,
           tabBarInactiveTintColor: colors.text.muted,
           tabBarLabelStyle: styles.tabLabel,
@@ -56,6 +68,11 @@ export default function TabsLayout() {
             title: "Today",
             tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>🏠</Text>,
           }}
+          listeners={{
+            tabPress: () => {
+              lightImpact();
+            },
+          }}
         />
 
         {/* Center "+" FAB Action */}
@@ -66,7 +83,10 @@ export default function TabsLayout() {
             tabBarButton: () => (
               <Pressable
                 onPress={handleOpenSheet}
-                style={styles.fabContainer}
+                style={[
+                  styles.fabContainer,
+                  { bottom: insets.bottom > 0 ? insets.bottom / 2 : 0 },
+                ]}
                 accessibilityRole="button"
                 accessibilityLabel="Log Food"
               >
@@ -90,6 +110,11 @@ export default function TabsLayout() {
             title: "Coach",
             tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>💬</Text>,
           }}
+          listeners={{
+            tabPress: () => {
+              lightImpact();
+            },
+          }}
         />
 
         <Tabs.Screen
@@ -97,6 +122,11 @@ export default function TabsLayout() {
           options={{
             title: "Reports",
             tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>📄</Text>,
+          }}
+          listeners={{
+            tabPress: () => {
+              lightImpact();
+            },
           }}
         />
       </Tabs>

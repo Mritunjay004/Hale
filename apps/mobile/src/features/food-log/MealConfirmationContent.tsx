@@ -11,6 +11,7 @@ import { colors, spacing, radius, typography } from "../../theme/tokens";
 import { Button } from "../../ui/Button";
 import { Card } from "../../ui/Card";
 import { api } from "../../lib/api-client";
+import { lightImpact, mediumImpact, successNotification } from "../../lib/haptics";
 import type { ParsedMeal, MealItem, MealType, MealSource } from "@hale/shared";
 
 interface ConfirmationSheetProps {
@@ -43,6 +44,7 @@ export function MealConfirmationContent({
 
   // Stepper handlers
   const updateQuantity = (index: number, delta: number) => {
+    lightImpact();
     setItems((prev) => {
       const updated = [...prev];
       const target = updated[index];
@@ -64,6 +66,7 @@ export function MealConfirmationContent({
   };
 
   const removeItem = (index: number) => {
+    mediumImpact();
     setItems((prev) => prev.filter((_, i) => i !== index));
   };
 
@@ -85,6 +88,7 @@ export function MealConfirmationContent({
         idempotencyKey,
       });
 
+      successNotification();
       onSaved();
     } catch (err) {
       console.error(err);

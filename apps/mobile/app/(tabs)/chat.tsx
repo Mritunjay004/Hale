@@ -10,6 +10,7 @@ import {
   Platform,
   ActivityIndicator,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../src/lib/api-client";
 import { colors, spacing, radius, typography } from "../../src/theme/tokens";
@@ -32,6 +33,7 @@ interface SendMessageResponse {
 }
 
 export default function ChatScreen() {
+  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const scrollViewRef = useRef<ScrollView>(null);
   const [inputText, setInputText] = useState("");
@@ -109,7 +111,7 @@ export default function ChatScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, { paddingTop: Math.max(insets.top, 16) + spacing.xs }]}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
     >

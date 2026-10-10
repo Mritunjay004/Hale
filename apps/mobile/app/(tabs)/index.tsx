@@ -22,10 +22,12 @@ import {
   StreakBadgeModal,
   FocusHabitsCard,
 } from "../../src/features/today";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useMealCaptureStore } from "../../src/features/food-log/useMealCaptureStore";
 import type { TodayResponse } from "@hale/shared";
 
 export default function TodayScreen() {
+  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { openCapture } = useMealCaptureStore();
   const [streakModalVisible, setStreakModalVisible] = useState(false);
@@ -91,7 +93,10 @@ export default function TodayScreen() {
     <>
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: Math.max(insets.top, 16) },
+        ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
