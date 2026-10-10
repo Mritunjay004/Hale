@@ -96,6 +96,13 @@ class ApiClient {
     });
   }
 
+  uploadFormData<T>(path: string, formData: FormData): Promise<T> {
+    return this.request<T>(path, {
+      method: "POST",
+      body: formData,
+    });
+  }
+
   put<T>(path: string, body?: unknown): Promise<T> {
     return this.request<T>(path, {
       method: "PUT",

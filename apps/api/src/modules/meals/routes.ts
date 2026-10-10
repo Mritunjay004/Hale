@@ -25,6 +25,38 @@ export async function mealRoutes(app: FastifyInstance): Promise<void> {
   });
 
   /**
+   * POST /v1/meals/parse-audio
+   * Accepts multipart audio file upload (m4a, mp4, wav, aac, etc.),
+   * transcribes with Groq Whisper, and parses into structured meal items.
+   */
+  app.post("/meals/parse-audio", async (request, reply) => {
+    const data = await request.file();
+    if (!data) {
+      return reply.status(400).send({
+        code: "VALIDATION_ERROR",
+        message: "Audio file is required in multipart field 'file'",
+      });
+    }
+
+    const audioBuffer = await data.toBuffer();
+    const mimeType = data.mimetype || "audio/m4a";
+
+    // 1. Transcribe speech to text
+    const transcribedText = await aiProvider.transcribeAudio(audioBuffer, mimeType);
+
+    // 2. Parse transcribed text into nutritional meal breakdown
+    const parsed = await aiProvider.parseMealText(
+      transcribedText,
+      { timeOfDay: new Date().toISOString() }
+    );
+
+    return reply.status(200).send({
+      transcription: transcribedText,
+      meal: parsed,
+    });
+  });
+
+  /**
    * POST /v1/meals
    * Save a confirmed meal (idempotent via idempotencyKey).
    */

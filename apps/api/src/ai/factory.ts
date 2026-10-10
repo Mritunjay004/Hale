@@ -1,15 +1,17 @@
 import { config } from "../infra/config.js";
 import { FakeAIProvider } from "./fake-provider.js";
 import { GeminiAIProvider } from "./gemini-provider.js";
-import type { LLMProvider, VisionProvider } from "./interfaces.js";
+import { GroqAudioProvider } from "./groq-audio-provider.js";
+import type { LLMProvider, VisionProvider, SpeechToTextProvider } from "./interfaces.js";
 import type { ParsedMeal, ExtractedReportResponse } from "@hale/shared";
 
 /**
  * Resilient AI Provider with automatic fallback decorator.
  * If live Gemini fails or encounters network/rate limits, seamlessly falls back to the local dynamic parser.
  */
-class ResilientAIProvider implements LLMProvider, VisionProvider {
+class ResilientAIProvider implements LLMProvider, VisionProvider, SpeechToTextProvider {
   private primary: GeminiAIProvider | null = null;
+  private audioProvider: GroqAudioProvider | null = null;
   private fallback: FakeAIProvider;
 
   constructor() {
@@ -19,6 +21,11 @@ class ResilientAIProvider implements LLMProvider, VisionProvider {
       this.primary = new GeminiAIProvider(config.GEMINI_API_KEY, config.GEMINI_MODEL);
     } else {
       console.log("🧪 Using Dynamic Local AI Provider");
+    }
+
+    if (config.GROQ_API_KEY) {
+      console.log("🎙️ Initialized Groq Whisper Large v3 Audio Provider");
+      this.audioProvider = new GroqAudioProvider(config.GROQ_API_KEY);
     }
   }
 
@@ -79,6 +86,17 @@ class ResilientAIProvider implements LLMProvider, VisionProvider {
   }
 
   async transcribeAudio(audioBuffer: Buffer, mimeType: string): Promise<string> {
+    if (this.audioProvider) {
+      try {
+        const text = await this.audioProvider.transcribeAudio(audioBuffer, mimeType);
+        if (text && text.trim().length > 0) {
+          console.log(`🎙️ Successfully transcribed audio via Groq Whisper: "${text}"`);
+          return text;
+        }
+      } catch (err) {
+        console.warn("⚠️ Live Whisper audio transcription failed. Falling back to local engine:", err);
+      }
+    }
     return this.fallback.transcribeAudio(audioBuffer, mimeType);
   }
 }

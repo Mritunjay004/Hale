@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,12 +8,15 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  Platform,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import { Audio } from "expo-av";
 import { colors, spacing, radius, typography } from "../../theme/tokens";
 import { Button } from "../../ui/Button";
 import { Card } from "../../ui/Card";
 import { api } from "../../lib/api-client";
+import { lightImpact, mediumImpact, successNotification } from "../../lib/haptics";
 import type { ParsedMeal, MealSource } from "@hale/shared";
 
 interface CaptureSheetProps {
@@ -33,13 +36,29 @@ export function MealCaptureContent({ onParsed, onClose }: CaptureSheetProps) {
   const [mode, setMode] = useState<"voice" | "camera" | "text">("voice");
   const [textInput, setTextInput] = useState("");
   const [isRecording, setIsRecording] = useState(false);
+  const [recordSeconds, setRecordSeconds] = useState(0);
   const [analyzing, setAnalyzing] = useState(false);
+  const [analyzingMessage, setAnalyzingMessage] = useState("Analyzing your meal...");
+
+  const recordingRef = useRef<Audio.Recording | null>(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Clean up recording and timers if sheet unmounts
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (recordingRef.current) {
+        recordingRef.current.stopAndUnloadAsync().catch(() => {});
+      }
+    };
+  }, []);
 
   // 1. Text Parse Action
   const handleParseText = async (customText?: string) => {
     const query = customText ?? textInput.trim();
     if (!query) return;
 
+    setAnalyzingMessage("Analyzing your meal...");
     setAnalyzing(true);
     try {
       const parsed = await api.post<ParsedMeal>("/meals/parse", {
@@ -64,30 +83,110 @@ export function MealCaptureContent({ onParsed, onClose }: CaptureSheetProps) {
     }
   };
 
-  // 2. Voice Simulation / Audio Tap
+  // 2. Real Microphone Voice Recording with User Controlled Stop
+  const startRecording = async () => {
+    try {
+      lightImpact();
+      const permission = await Audio.requestPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(
+          "Microphone Permission",
+          "Microphone access is required to speak your meal."
+        );
+        return;
+      }
+
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+
+      const { recording } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      );
+      recordingRef.current = recording;
+      setIsRecording(true);
+      setRecordSeconds(0);
+
+      timerRef.current = setInterval(() => {
+        setRecordSeconds((s) => s + 1);
+      }, 1000);
+    } catch (err) {
+      console.error("Failed to start recording:", err);
+      Alert.alert("Recording Error", "Could not initialize microphone. Please try typing.");
+    }
+  };
+
+  const stopRecordingAndTranscribe = async () => {
+    if (!recordingRef.current) return;
+    mediumImpact();
+
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+
+    const recording = recordingRef.current;
+    recordingRef.current = null;
+    setIsRecording(false);
+
+    setAnalyzingMessage("Transcribing your speech...");
+    setAnalyzing(true);
+
+    try {
+      await recording.stopAndUnloadAsync();
+      const uri = recording.getURI();
+      if (!uri) {
+        throw new Error("No recording URI found");
+      }
+
+      setAnalyzingMessage("Identifying ingredients & portions...");
+
+      const formData = new FormData();
+      if (Platform.OS === "web") {
+        const audioBlob = await (await fetch(uri)).blob();
+        formData.append("file", audioBlob, "recording.m4a");
+      } else {
+        formData.append("file", {
+          uri,
+          name: "recording.m4a",
+          type: "audio/m4a",
+        } as unknown as Blob);
+      }
+
+      const result = await api.uploadFormData<{
+        transcription: string;
+        meal: ParsedMeal;
+      }>("/meals/parse-audio", formData);
+
+      successNotification();
+
+      if (!result.meal.isFood) {
+        Alert.alert(
+          "Not Recognized as Food",
+          result.meal.clarifyingQuestion ?? `Heard: "${result.transcription}"\nPlease describe food items.`
+        );
+        return;
+      }
+
+      onParsed(result.meal, "voice", result.transcription);
+    } catch (err) {
+      console.error("Voice transcription failed:", err);
+      Alert.alert(
+        "Voice Processing Failed",
+        "Could not transcribe audio. You can type your meal or try speaking again."
+      );
+    } finally {
+      setAnalyzing(false);
+      setRecordSeconds(0);
+    }
+  };
+
   const handleToggleVoice = async () => {
     if (!isRecording) {
-      setIsRecording(true);
-      // Simulate speech recording window
-      setTimeout(async () => {
-        setIsRecording(false);
-        setAnalyzing(true);
-        try {
-          const sampleAudioTranscript = "two rotis, yellow dal, and a bowl of curd";
-          const parsed = await api.post<ParsedMeal>("/meals/parse", {
-            text: sampleAudioTranscript,
-            clientTimestamp: new Date().toISOString(),
-          });
-          onParsed(parsed, "voice", sampleAudioTranscript);
-        } catch (err) {
-          console.error(err);
-          Alert.alert("Voice Error", "Could not transcribe audio. Please try typing.");
-        } finally {
-          setAnalyzing(false);
-        }
-      }, 2500);
+      await startRecording();
     } else {
-      setIsRecording(false);
+      await stopRecordingAndTranscribe();
     }
   };
 
@@ -145,9 +244,9 @@ export function MealCaptureContent({ onParsed, onClose }: CaptureSheetProps) {
     return (
       <View style={styles.analyzingContainer}>
         <ActivityIndicator size="large" color={colors.brand.primary} />
-        <Text style={styles.analyzingTitle}>Analyzing your meal...</Text>
+        <Text style={styles.analyzingTitle}>{analyzingMessage}</Text>
         <Text style={styles.analyzingSub}>
-          Identifying ingredients, estimating portions, and calculating macros.
+          Identifying ingredients, estimating portions, and calculating macros with AI.
         </Text>
       </View>
     );
@@ -192,18 +291,29 @@ export function MealCaptureContent({ onParsed, onClose }: CaptureSheetProps) {
             style={[styles.micCircle, isRecording && styles.micCircleRecording]}
             onPress={handleToggleVoice}
             accessibilityRole="button"
-            accessibilityLabel="Record voice"
+            accessibilityLabel={isRecording ? "Stop recording and finish" : "Record voice"}
           >
             <Text style={{ fontSize: 34 }}>{isRecording ? "⏹" : "🎙"}</Text>
           </Pressable>
           <Text style={styles.voiceTitle}>
-            {isRecording ? "Listening to your meal..." : "Tap to speak your meal"}
+            {isRecording ? `Listening... (${recordSeconds}s)` : "Tap to speak your meal"}
           </Text>
           <Text style={styles.voiceSub}>
             {isRecording
-              ? "e.g. 'Two chapatis, a bowl of dal, and cucumber salad'..."
+              ? "Speak freely. When you're done, tap the button or 'Done Speaking' below."
               : "Supports Indian dishes & household portions (katoris, rotis, spoons)"}
           </Text>
+
+          {isRecording && (
+            <Pressable
+              style={styles.doneSpeakingBtn}
+              onPress={handleToggleVoice}
+              accessibilityRole="button"
+              accessibilityLabel="Done Speaking"
+            >
+              <Text style={styles.doneSpeakingText}>✓ Done Speaking</Text>
+            </Pressable>
+          )}
         </View>
       )}
 
@@ -318,6 +428,20 @@ const styles = StyleSheet.create({
   },
   micCircleRecording: {
     backgroundColor: colors.semantic.error,
+  },
+  doneSpeakingBtn: {
+    marginTop: spacing.sm,
+    backgroundColor: colors.brand.primary,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.full,
+    alignItems: "center",
+  },
+  doneSpeakingText: {
+    ...typography.caption,
+    color: colors.text.inverse,
+    fontWeight: "700",
+    fontSize: 14,
   },
   cameraHero: {
     backgroundColor: colors.bg.subtle,
