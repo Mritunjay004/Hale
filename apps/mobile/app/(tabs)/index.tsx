@@ -45,7 +45,13 @@ export default function TodayScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.container}>
+      <View
+        style={[
+          styles.container,
+          styles.content,
+          { paddingTop: Math.max(insets.top, 16) },
+        ]}
+      >
         <View style={styles.header}>
           <Skeleton width={180} height={32} />
           <Skeleton width={88} height={28} borderRadius={radius.full} />
@@ -59,7 +65,13 @@ export default function TodayScreen() {
 
   if (error || !data) {
     return (
-      <View style={[styles.container, styles.centered]}>
+      <View
+        style={[
+          styles.container,
+          styles.centered,
+          { paddingTop: Math.max(insets.top, 16) },
+        ]}
+      >
         <Text style={styles.errorTitle}>Welcome to Hale</Text>
         <Text style={styles.errorSub}>
           Complete your 90-second onboarding to receive your personalized health plan, or test with sample reviewer data.
