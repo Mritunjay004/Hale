@@ -59,6 +59,13 @@ class ResilientAIProvider implements LLMProvider, VisionProvider, SpeechToTextPr
     fileBuffer: Buffer,
     mimeType: string
   ): Promise<ExtractedReportResponse> {
+    if (this.primary) {
+      try {
+        return await this.primary.extractReportDocument(fileBuffer, mimeType);
+      } catch (err) {
+        console.warn("⚠️ Live Gemini report extraction failed. Gracefully falling back to local engine:", err);
+      }
+    }
     return this.fallback.extractReportDocument(fileBuffer, mimeType);
   }
 

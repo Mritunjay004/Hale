@@ -44,7 +44,7 @@ export function ReportUploadSheet({ onExtracted, onClose }: ReportUploadSheetPro
         result = await ImagePicker.launchCameraAsync({
           mediaTypes: ImagePicker.MediaTypeOptions.Images,
           base64: true,
-          quality: 0.8,
+          quality: 0.6,
         });
       } else {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -55,7 +55,7 @@ export function ReportUploadSheet({ onExtracted, onClose }: ReportUploadSheetPro
         result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ImagePicker.MediaTypeOptions.Images,
           base64: true,
-          quality: 0.8,
+          quality: 0.6,
         });
       }
 

@@ -2,6 +2,9 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { LLMProvider, VisionProvider } from "./interfaces.js";
 import {
   parsedMealSchema,
+  extractedReportResponseSchema,
+  CANONICAL_BIOMARKERS,
+  matchCanonicalBiomarker,
   type ParsedMeal,
   type ExtractedReportResponse,
 } from "@hale/shared";
@@ -133,10 +136,128 @@ Return JSON strictly adhering to this schema:
   }
 
   async extractReportDocument(
-    _fileBuffer: Buffer,
-    _mimeType: string
+    fileBuffer: Buffer,
+    mimeType: string
   ): Promise<ExtractedReportResponse> {
-    throw new Error("Report extraction via Gemini not implemented yet");
+    const prompt = `You are a clinical pathology document extractor for the Hale Health app.
+Extract all lab test names, test values (numbers only), units, and reference intervals (refLow, refHigh) found in this medical lab report / blood test document.
+Also extract the report date (YYYY-MM-DD format, or today's date if missing) and the laboratory or clinic name if present.
+
+Return JSON strictly adhering to this structure:
+{
+  "reportDate": "YYYY-MM-DD",
+  "labName": string,
+  "parameters": [
+    {
+      "name": string,
+      "value": number,
+      "unit": string,
+      "refLow": number or null,
+      "refHigh": number or null
+    }
+  ]
+}`;
+
+    // Normalize image or PDF mime type for Gemini
+    const safeMimeType = mimeType.includes("pdf") ? "application/pdf" : (mimeType || "image/jpeg");
+    const docPart = {
+      inlineData: {
+        data: fileBuffer.toString("base64"),
+        mimeType: safeMimeType,
+      },
+    };
+
+    let lastError: unknown;
+    for (const modelName of this.candidateModels) {
+      try {
+        const model = this.client.getGenerativeModel({
+          model: modelName,
+          generationConfig: {
+            responseMimeType: "application/json",
+            temperature: 0.1,
+          },
+        });
+
+        const result = await model.generateContent([prompt, docPart]);
+        const jsonText = result.response.text();
+        const rawData = JSON.parse(jsonText);
+
+        const extractedParams = (rawData.parameters || []).map((p: any) => {
+          const matched = matchCanonicalBiomarker(p.name);
+          const canonicalKey = matched ? matched.key : null;
+          const refLow = typeof p.refLow === "number" ? p.refLow : (matched ? matched.referenceRange.low : null);
+          const refHigh = typeof p.refHigh === "number" ? p.refHigh : (matched ? matched.referenceRange.high : null);
+
+          let status: "low" | "normal" | "high" | "unknown" = "unknown";
+          if (typeof p.value === "number") {
+            if (refLow !== null && p.value < refLow) status = "low";
+            else if (refHigh !== null && p.value > refHigh) status = "high";
+            else if (refLow !== null || refHigh !== null) status = "normal";
+          }
+
+          return {
+            id: crypto.randomUUID(),
+            canonicalKey,
+            name: matched ? matched.name : p.name,
+            value: Number(p.value) || 0,
+            unit: p.unit || (matched ? matched.standardUnit : ""),
+            refLow,
+            refHigh,
+            status,
+            confidence: "high" as const,
+            needsReview: !matched,
+          };
+        });
+
+        // Fast deterministic goal-linked suggestions from local dictionary
+        const goalLinkedSuggestions: Array<{
+          parameterKey: string;
+          parameterName: string;
+          habitTitle: string;
+          why: string;
+          metric: string;
+        }> = [];
+
+        for (const param of extractedParams) {
+          if (param.canonicalKey && param.status !== "normal" && param.status !== "unknown") {
+            const biomarker = CANONICAL_BIOMARKERS[param.canonicalKey];
+            if (biomarker) {
+              const habit = param.status === "low"
+                ? biomarker.goalLinkedHabits.whenLow ?? biomarker.goalLinkedHabits.whenHigh
+                : biomarker.goalLinkedHabits.whenHigh ?? biomarker.goalLinkedHabits.whenLow;
+
+              if (habit) {
+                goalLinkedSuggestions.push({
+                  parameterKey: biomarker.key,
+                  parameterName: biomarker.name,
+                  habitTitle: habit.title,
+                  why: `${biomarker.name} was ${param.status} in your report. ${habit.why}`,
+                  metric: habit.metric,
+                });
+              }
+            }
+          }
+        }
+
+        const reportResponse: ExtractedReportResponse = {
+          reportDate: rawData.reportDate || new Date().toISOString().split("T")[0]!,
+          labName: rawData.labName || "Diagnostic Lab",
+          parameters: extractedParams,
+          rawSummary: `Extracted ${extractedParams.length} biomarker tests from document.`,
+          goalLinkedSuggestions,
+        };
+
+        const validated = extractedReportResponseSchema.parse(reportResponse);
+        console.log(`✅ Live Gemini report extraction succeeded with model ${modelName} (${extractedParams.length} parameters)`);
+        return validated;
+      } catch (err) {
+        lastError = err;
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(`Gemini model ${modelName} failed on report extraction (${msg}), trying next candidate...`);
+      }
+    }
+
+    throw lastError;
   }
 
   async phraseInsight(
