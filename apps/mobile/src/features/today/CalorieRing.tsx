@@ -1,7 +1,17 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import Svg, { Circle } from "react-native-svg";
-import { colors, typography, spacing } from "../../theme/tokens";
+import Animated, {
+  useSharedValue,
+  useAnimatedProps,
+  useAnimatedStyle,
+  withSpring,
+  interpolate,
+} from "react-native-reanimated";
+import { colors, typography } from "../../theme/tokens";
+import { clamp, springConfig } from "../../lib/animations";
+
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 interface CalorieRingProps {
   currentKcal: number;
@@ -18,8 +28,31 @@ export function CalorieRing({
 }: CalorieRingProps) {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const progress = targetKcal > 0 ? Math.min(1, Math.max(0, currentKcal / targetKcal)) : 0;
-  const strokeDashoffset = circumference - progress * circumference;
+  const targetProgress = targetKcal > 0 ? clamp(currentKcal / targetKcal, 0, 1) : 0;
+
+  const progressVal = useSharedValue(0);
+
+  useEffect(() => {
+    progressVal.value = withSpring(targetProgress, springConfig);
+  }, [targetProgress]);
+
+  const animatedProps = useAnimatedProps(() => {
+    "worklet";
+    return {
+      strokeDashoffset: circumference - progressVal.value * circumference,
+    };
+  });
+
+  const centerScaleStyle = useAnimatedStyle(() => {
+    "worklet";
+    return {
+      transform: [
+        {
+          scale: interpolate(progressVal.value, [0, 1], [0.96, 1]),
+        },
+      ],
+    };
+  });
 
   const remaining = Math.max(0, targetKcal - currentKcal);
   const isOver = currentKcal > targetKcal;
@@ -36,28 +69,28 @@ export function CalorieRing({
           strokeWidth={strokeWidth}
           fill="none"
         />
-        {/* Progress Arc */}
-        <Circle
+        {/* Animated Progress Arc */}
+        <AnimatedCircle
           cx={size / 2}
           cy={size / 2}
           r={radius}
           stroke={isOver ? colors.semantic.warn : colors.brand.primary}
           strokeWidth={strokeWidth}
           strokeDasharray={`${circumference} ${circumference}`}
-          strokeDashoffset={strokeDashoffset}
+          animatedProps={animatedProps}
           strokeLinecap="round"
           fill="none"
           transform={`rotate(-90 ${size / 2} ${size / 2})`}
         />
       </Svg>
 
-      <View style={styles.centerTextContainer}>
+      <Animated.View style={[styles.centerTextContainer, centerScaleStyle]}>
         <Text style={styles.kcalNumber}>{currentKcal}</Text>
         <Text style={styles.targetLabel}>/ {targetKcal} kcal</Text>
         <Text style={[styles.remainingLabel, isOver && styles.overLabel]}>
           {isOver ? `+${currentKcal - targetKcal} over` : `${remaining} to go`}
         </Text>
-      </View>
+      </Animated.View>
     </View>
   );
 }

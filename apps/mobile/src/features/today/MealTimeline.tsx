@@ -1,7 +1,14 @@
 import React from "react";
 import { View, Text, StyleSheet, Pressable, Alert } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from "react-native-reanimated";
 import { colors, typography, spacing, radius } from "../../theme/tokens";
 import { Card } from "../../ui/Card";
+import { snapPoint, springConfig } from "../../lib/animations";
 import type { MealRecord } from "@hale/shared";
 
 interface MealTimelineProps {
@@ -25,9 +32,109 @@ const SOURCE_LABELS: Record<string, string> = {
   manual: "📝 Manual",
 };
 
-export function MealTimeline({ meals, onDeleteMeal, onPressLogMeal }: MealTimelineProps) {
-  const [deletingId, setDeletingId] = React.useState<string | null>(null);
+interface SwipeableMealCardProps {
+  meal: MealRecord;
+  onConfirmDelete: (mealId: string, mealType: string) => void;
+}
 
+function SwipeableMealCard({ meal, onConfirmDelete }: SwipeableMealCardProps) {
+  const translateX = useSharedValue(0);
+  const icon = MEAL_ICONS[meal.mealType] ?? "🍽️";
+  const sourceLabel = SOURCE_LABELS[meal.source] ?? "✍️ Log";
+  const dateObj = new Date(meal.loggedAt ?? meal.createdAt);
+  const timeStr = dateObj.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
+  const pan = Gesture.Pan()
+    .activeOffsetX([-10, 10])
+    .onChange((event) => {
+      "worklet";
+      translateX.value = Math.min(0, Math.max(-100, translateX.value + event.changeX));
+    })
+    .onEnd((event) => {
+      "worklet";
+      const snap = snapPoint(translateX.value, event.velocityX, [-76, 0]);
+      translateX.value = withSpring(snap, springConfig);
+    });
+
+  const animatedStyle = useAnimatedStyle(() => {
+    "worklet";
+    return {
+      transform: [{ translateX: translateX.value }],
+    };
+  });
+
+  return (
+    <View style={styles.swipeContainer}>
+      {/* Background Delete Action revealed on swipe */}
+      <View style={styles.deleteUnderlay}>
+        <Pressable
+          style={styles.underlayDeleteBtn}
+          onPress={() => onConfirmDelete(meal.id, meal.mealType)}
+          accessibilityRole="button"
+          accessibilityLabel={`Delete ${meal.mealType}`}
+        >
+          <Text style={styles.underlayTrashIcon}>🗑️</Text>
+          <Text style={styles.underlayDeleteText}>Delete</Text>
+        </Pressable>
+      </View>
+
+      {/* Foreground Interactive Card */}
+      <GestureDetector gesture={pan}>
+        <Animated.View style={animatedStyle}>
+          <Card style={styles.mealCard}>
+            <View style={styles.mealHeader}>
+              <View style={styles.mealBadgeGroup}>
+                <Text style={styles.mealIcon}>{icon}</Text>
+                <View>
+                  <Text style={styles.mealTypeName}>
+                    {meal.mealType.charAt(0).toUpperCase() + meal.mealType.slice(1)}
+                  </Text>
+                  <Text style={styles.timeLabel}>
+                    {timeStr} · {sourceLabel}
+                  </Text>
+                </View>
+              </View>
+
+              <Pressable
+                style={({ pressed }) => [styles.deleteBtn, pressed && { opacity: 0.7 }]}
+                onPress={() => onConfirmDelete(meal.id, meal.mealType)}
+                accessibilityLabel={`Delete ${meal.mealType}`}
+              >
+                <Text style={styles.deleteIcon}>✕</Text>
+              </Pressable>
+            </View>
+
+            {/* Items Breakdown */}
+            {meal.items && meal.items.length > 0 ? (
+              <View style={styles.itemsList}>
+                {meal.items.map((item, idx) => (
+                  <View key={idx} style={styles.itemRow}>
+                    <Text style={styles.itemName}>
+                      • {item.quantity} {item.unit} {item.name}
+                    </Text>
+                    <Text style={styles.itemKcal}>{item.kcal} kcal</Text>
+                  </View>
+                ))}
+              </View>
+            ) : meal.rawInput ? (
+              <Text style={styles.rawInputText}>"{meal.rawInput}"</Text>
+            ) : null}
+
+            {/* Macros summary */}
+            <View style={styles.macroSummaryRow}>
+              <Text style={styles.totalKcalBadge}>{meal.totalKcal} kcal</Text>
+              <Text style={styles.macroDetail}>
+                {meal.proteinG}g P · {meal.carbsG}g C · {meal.fatG}g F
+              </Text>
+            </View>
+          </Card>
+        </Animated.View>
+      </GestureDetector>
+    </View>
+  );
+}
+
+export function MealTimeline({ meals, onDeleteMeal, onPressLogMeal }: MealTimelineProps) {
   const confirmDelete = (mealId: string, mealType: string) => {
     Alert.alert(
       `Delete ${mealType.toUpperCase()}?`,
@@ -38,12 +145,7 @@ export function MealTimeline({ meals, onDeleteMeal, onPressLogMeal }: MealTimeli
           text: "Delete",
           style: "destructive",
           onPress: async () => {
-            setDeletingId(mealId);
-            try {
-              await onDeleteMeal(mealId);
-            } finally {
-              setDeletingId(null);
-            }
+            await onDeleteMeal(mealId);
           },
         },
       ]
@@ -77,60 +179,13 @@ export function MealTimeline({ meals, onDeleteMeal, onPressLogMeal }: MealTimeli
         <Text style={styles.mealCountBadge}>{meals.length} logged</Text>
       </View>
 
-      {meals.map((meal) => {
-        const icon = MEAL_ICONS[meal.mealType] ?? "🍽️";
-        const sourceLabel = SOURCE_LABELS[meal.source] ?? "✍️ Log";
-        const dateObj = new Date(meal.loggedAt ?? meal.createdAt);
-        const timeStr = dateObj.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-
-        return (
-          <Card key={meal.id} style={styles.mealCard}>
-            <View style={styles.mealHeader}>
-              <View style={styles.mealBadgeGroup}>
-                <Text style={styles.mealIcon}>{icon}</Text>
-                <View>
-                  <Text style={styles.mealTypeName}>
-                    {meal.mealType.charAt(0).toUpperCase() + meal.mealType.slice(1)}
-                  </Text>
-                  <Text style={styles.timeLabel}>{timeStr} · {sourceLabel}</Text>
-                </View>
-              </View>
-
-              <Pressable
-                style={({ pressed }) => [styles.deleteBtn, pressed && { opacity: 0.7 }]}
-                onPress={() => confirmDelete(meal.id, meal.mealType)}
-                accessibilityLabel={`Delete ${meal.mealType}`}
-              >
-                <Text style={styles.deleteIcon}>🗑️</Text>
-              </Pressable>
-            </View>
-
-            {/* Items Breakdown */}
-            {meal.items && meal.items.length > 0 ? (
-              <View style={styles.itemsList}>
-                {meal.items.map((item, idx) => (
-                  <View key={idx} style={styles.itemRow}>
-                    <Text style={styles.itemName}>
-                      • {item.quantity} {item.unit} {item.name}
-                    </Text>
-                    <Text style={styles.itemKcal}>{item.kcal} kcal</Text>
-                  </View>
-                ))}
-              </View>
-            ) : meal.rawInput ? (
-              <Text style={styles.rawInputText}>"{meal.rawInput}"</Text>
-            ) : null}
-
-            {/* Macros summary bar */}
-            <View style={styles.macroSummaryRow}>
-              <Text style={styles.totalKcalBadge}>{meal.totalKcal} kcal</Text>
-              <Text style={styles.macroDetail}>
-                {meal.proteinG}g P · {meal.carbsG}g C · {meal.fatG}g F
-              </Text>
-            </View>
-          </Card>
-        );
-      })}
+      {meals.map((meal) => (
+        <SwipeableMealCard
+          key={meal.id}
+          meal={meal}
+          onConfirmDelete={confirmDelete}
+        />
+      ))}
     </View>
   );
 }
@@ -153,6 +208,36 @@ const styles = StyleSheet.create({
   mealCountBadge: {
     ...typography.badge,
     color: colors.brand.primary,
+  },
+  swipeContainer: {
+    position: "relative",
+    borderRadius: radius.lg,
+    overflow: "hidden",
+  },
+  deleteUnderlay: {
+    position: "absolute",
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: 76,
+    backgroundColor: "#DC2626",
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: radius.lg,
+  },
+  underlayDeleteBtn: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  underlayTrashIcon: {
+    fontSize: 20,
+  },
+  underlayDeleteText: {
+    ...typography.badge,
+    color: "#FFFFFF",
+    fontWeight: "700",
+    fontSize: 10,
+    marginTop: 2,
   },
   emptyCard: {
     alignItems: "center",
@@ -216,7 +301,8 @@ const styles = StyleSheet.create({
     padding: spacing.xs,
   },
   deleteIcon: {
-    fontSize: 16,
+    fontSize: 14,
+    color: colors.text.muted,
   },
   itemsList: {
     backgroundColor: colors.bg.canvas,
@@ -262,4 +348,3 @@ const styles = StyleSheet.create({
     color: colors.text.muted,
   },
 });
-

@@ -1,7 +1,13 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from "react-native-reanimated";
 import { colors, typography, spacing, radius } from "../../theme/tokens";
 import { Card } from "../../ui/Card";
+import { springConfig } from "../../lib/animations";
 import type { ParameterTrendResponse } from "@hale/shared";
 
 interface BiomarkerTrendCardProps {
@@ -32,6 +38,19 @@ export function BiomarkerTrendCard({ trend }: BiomarkerTrendCardProps) {
     latestValue != null
       ? Math.max(2, Math.min(98, ((latestValue - minScale) / totalSpan) * 100))
       : 50;
+
+  const animatedMarker = useSharedValue(0);
+
+  React.useEffect(() => {
+    animatedMarker.value = withSpring(markerPercent, springConfig);
+  }, [markerPercent]);
+
+  const animatedMarkerStyle = useAnimatedStyle(() => {
+    "worklet";
+    return {
+      left: `${animatedMarker.value}%`,
+    };
+  });
 
   return (
     <Card style={styles.card}>
@@ -77,9 +96,9 @@ export function BiomarkerTrendCard({ trend }: BiomarkerTrendCardProps) {
 
           {/* Current value marker pin */}
           {latestValue != null && (
-            <View style={[styles.markerPin, { left: `${markerPercent}%` }]}>
+            <Animated.View style={[styles.markerPin, animatedMarkerStyle]}>
               <View style={[styles.markerHead, { backgroundColor: statusCfg.color }]} />
-            </View>
+            </Animated.View>
           )}
         </View>
 
