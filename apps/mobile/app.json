@@ -31,7 +31,14 @@
       "expo-router",
       "expo-secure-store"
     ],
-    "scheme": "hale"
+    "scheme": "hale",
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "c3e23631-1b99-48cd-8a04-189d2309c9ce"
+      }
+    }
   }
 }
-
