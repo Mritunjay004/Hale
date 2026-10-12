@@ -14,7 +14,9 @@ const PROMPTS = [
   { emoji: "🍳", text: "Log meal: 2 rotis and yellow dal" },
 ];
 
-export function QuickPromptChips({ onSelectPrompt }: QuickPromptChipsProps) {
+export const QuickPromptChips = React.memo(function QuickPromptChips({
+  onSelectPrompt,
+}: QuickPromptChipsProps) {
   return (
     <View style={styles.container}>
       <ScrollView
@@ -40,7 +42,7 @@ export function QuickPromptChips({ onSelectPrompt }: QuickPromptChipsProps) {
       </ScrollView>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

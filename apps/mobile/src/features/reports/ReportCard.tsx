@@ -15,6 +15,8 @@ export interface ReportItem {
     name: string;
     value: number;
     unit: string;
+    refLow?: number | null;
+    refHigh?: number | null;
     status: "low" | "normal" | "high" | "unknown";
   }>;
 }

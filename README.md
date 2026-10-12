@@ -49,20 +49,24 @@ flowchart LR
 - **Quick Text:** 1-line description with intelligent regional unit parsing.
 - **Confirmation Sheet:** Interactive quantity steppers, swipe-to-delete items, and live macro recalculation before idempotent saving.
 
-### Flow 3: Today Screen — The Proactive Coach
+### Flow 3: Today Screen — The Proactive Coach & Daily Meal Tracker
+- **Meal Slot Tracker & Indicator:** Visual 3-segment progress bar tracking Breakfast, Lunch, Dinner, and Snacks with dynamic states (*Logged ✓*, *Due Now*, *Missing/Backfill*, *Upcoming*).
+- **Smart Local Push Notifications:** Scheduled on-device reminders via `expo-notifications` (10:00 AM Breakfast, 2:00 PM Lunch, 8:30 PM Dinner, 9:45 PM Streak Guard) with automatic cancellation upon logging and deep-link tap handling.
 - **Calorie & Macro Progress Rings:** Custom SVG circular ring animated with Reanimated 3 spring physics.
 - **Human Microcopy:** Numbers paired with meaning (*"38g protein to go"*, not abstract math).
-- **Vitality Insight of the Day:** Explains real-world subjective feeling (e.g. how low Vitamin D causes 3 PM energy slumps).
+- **Vitality Insight of the Day:** Explains real-world subjective feeling (e.g. how low Vitamin D causes 3 PM energy slumps, fiber meal boosts).
 - **Meal Timeline:** Chronological logged meals with item breakdown and Gestures 2.0 swipe-to-delete.
-- **Streak & Grace System:** Tracks streaks with **1 automatic grace day per week** + 6 Milestone Achievement Badges.
+- **Streak & Grace System:** Tracks streaks with **1 automatic grace day per week** + 6 Milestone Achievement Badges + End-of-Day Summary modal.
 
 ### Flow 4: Health Reports & Biomarker Trend Engine
 - **In-Memory Clinical Extraction:** Processes PDFs or camera photos in-memory without storing raw health documents server-side.
-- **Visual Range Bars:** Horizontal clinical range indicator highlighting Normal vs Elevated/Low zones.
+- **Visual Range Bars:** Horizontal clinical range indicator highlighting Normal vs Elevated/Low zones with option to manage findings.
 - **Historical Trends:** Tracks changes over time across multiple tests (e.g. LDL down from 142 to 132 mg/dL).
 - **Goal-Linked Habit Suggestions:** Flagged parameters automatically generate targeted focus habits.
 
-### Flow 5: Grounded AI Coach Chat
+### Flow 5: Grounded AI Coach Chat & High-Performance Virtualization
+- **High-Performance Virtualization:** Virtualized `FlatList` with memoized chat bubbles and tool cards for zero input keystroke lag.
+- **Interruptible Thinking & Stop Stream:** Instant abort controller capability with inline `✕ Stop` action.
 - **Deeply Grounded Context:** The coach has full live awareness of the user's calorie targets, today's eaten totals, remaining macro gap, and flagged lab markers.
 - **3 Native Tools:**
   1. `log_meal`: Directly logs food mentioned in conversation and refreshes Today rings.
@@ -130,6 +134,8 @@ hale/
 ## 4. Tech Stack
 
 - **Mobile / Web:** Expo SDK 51, React Native 0.74, `expo-router` v3, TypeScript strict.
+- **Smart Push Notifications:** `expo-notifications` scheduled local on-device nudges with dynamic auto-cancellation upon meal logging.
+- **UI & Iconography:** Handcrafted SVG vector icons with optical centering, Apple HIG dual-state navigation, active pill indicator, and 4pt token scale.
 - **Animation & Gestures:** `react-native-reanimated` v3 (UI-thread worklets & spring physics per ADR-006), `react-native-gesture-handler` (Gestures 2.0).
 - **Backend:** Node.js 20, Fastify v4, Drizzle ORM, PostgreSQL 16.
 - **Validation & Contracts:** Zod shared across client and server.

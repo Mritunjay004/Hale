@@ -309,5 +309,25 @@ export async function devRoutes(app: FastifyInstance): Promise<void> {
       message: "Sample demo data seeded successfully with 14 days of logs, weight trends, and 2 reports.",
     });
   });
+
+  /**
+   * POST /v1/dev/reset-account
+   * Wipes all user data (profile, habits, meals, reports, weight) for a clean slate.
+   */
+  app.post("/dev/reset-account", async (request, reply) => {
+    const userId = request.userId;
+
+    await db.delete(profiles).where(eq(profiles.userId, userId));
+    await db.delete(focusHabits).where(eq(focusHabits.userId, userId));
+    await db.delete(meals).where(eq(meals.userId, userId));
+    await db.delete(weightEntries).where(eq(weightEntries.userId, userId));
+    await db.delete(reports).where(eq(reports.userId, userId));
+    await db.delete(achievements).where(eq(achievements.userId, userId));
+
+    return reply.status(200).send({
+      success: true,
+      message: "Account reset successfully. Blank slate ready.",
+    });
+  });
 }
 

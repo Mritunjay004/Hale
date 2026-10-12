@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { colors, typography, spacing, radius } from "../../theme/tokens";
 
-export function ContextBanner() {
+export const ContextBanner = React.memo(function ContextBanner() {
   return (
     <View style={styles.banner}>
       <Text style={styles.icon}>🧠</Text>
@@ -14,7 +14,7 @@ export function ContextBanner() {
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   banner: {

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   StyleSheet,
   RefreshControl,
   Pressable,
+  Alert,
 } from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../src/lib/api-client";
@@ -21,26 +22,67 @@ import {
   MealTimeline,
   StreakBadgeModal,
   FocusHabitsCard,
+  DaySummaryModal,
+  MealSlotTracker,
+  MealRemindersModal,
 } from "../../src/features/today";
+import { syncMealReminders } from "../../src/lib/notifications";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 import { useMealCaptureStore } from "../../src/features/food-log/useMealCaptureStore";
 import type { TodayResponse } from "@hale/shared";
 
 export default function TodayScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { openCapture } = useMealCaptureStore();
   const [streakModalVisible, setStreakModalVisible] = useState(false);
-  const [isSeeding, setIsSeeding] = useState(false);
+  const [summaryModalVisible, setSummaryModalVisible] = useState(false);
+  const [remindersModalVisible, setRemindersModalVisible] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
 
   const { data, isLoading, isRefetching, error, refetch } = useQuery<TodayResponse>({
     queryKey: ["today"],
     queryFn: () => api.get<TodayResponse>("/today"),
   });
 
+  useEffect(() => {
+    if (data?.timelineMeals) {
+      syncMealReminders(data.timelineMeals, data.streak?.currentStreakDays ?? 0);
+    }
+  }, [data?.timelineMeals, data?.streak?.currentStreakDays]);
+
   const handleDeleteMeal = async (mealId: string) => {
     await api.delete(`/meals/${mealId}`);
     await queryClient.invalidateQueries({ queryKey: ["today"] });
+  };
+
+  const handleResetFlow = () => {
+    Alert.alert(
+      "Reset to Blank Slate?",
+      "This will erase your logged meals, habits, and profile targets so you can start fresh from onboarding.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Reset Everything",
+          style: "destructive",
+          onPress: async () => {
+            setIsResetting(true);
+            try {
+              await api.post("/dev/reset-account");
+            } catch {
+              // Even if dev route is disabled on server, reset local device session
+              await api.resetSession();
+            } finally {
+              queryClient.clear();
+              setIsResetting(false);
+              router.replace("/onboarding/welcome");
+            }
+          },
+        },
+      ]
+    );
   };
 
   if (isLoading) {
@@ -74,25 +116,35 @@ export default function TodayScreen() {
       >
         <Text style={styles.errorTitle}>Welcome to Hale</Text>
         <Text style={styles.errorSub}>
-          Complete your 90-second onboarding to receive your personalized health plan, or test with sample reviewer data.
+          Take 90 seconds to build your personalized daily nutrition targets, habits, and coach.
         </Text>
         <Button
-          label={isSeeding ? "Seeding Demo Data..." : "Try With Sample Data"}
-          loading={isSeeding}
-          disabled={isSeeding}
-          onPress={async () => {
-            setIsSeeding(true);
-            try {
-              await api.post("/dev/seed-demo");
-              await refetch();
-            } catch (err) {
-              console.error("Failed to seed demo data:", err);
-            } finally {
-              setIsSeeding(false);
-            }
-          }}
-          style={{ marginTop: spacing.lg }}
+          label="Build My Plan (90s) →"
+          onPress={() => router.push("/onboarding/welcome")}
+          style={{ marginTop: spacing.lg, width: "100%", maxWidth: 280 }}
         />
+
+        {/* 
+          // REVIEWER DEMO SEEDING (Disabled for real users)
+          <Button
+            label={isSeeding ? "Seeding Demo Data..." : "Try With Sample Data"}
+            loading={isSeeding}
+            disabled={isSeeding}
+            variant="outline"
+            onPress={async () => {
+              setIsSeeding(true);
+              try {
+                await api.post("/dev/seed-demo");
+                await refetch();
+              } catch (err) {
+                console.error("Failed to seed demo data:", err);
+              } finally {
+                setIsSeeding(false);
+              }
+            }}
+            style={{ marginTop: spacing.sm, width: "100%", maxWidth: 280 }}
+          />
+        */}
       </View>
     );
   }
@@ -150,10 +202,23 @@ export default function TodayScreen() {
             onPressAction={() => {
               if (data.nextBestAction.actionType === "log_meal") {
                 openCapture(data.nextBestAction.suggestedMealType);
+              } else if (
+                data.nextBestAction.actionType === "complete" ||
+                data.nextBestAction.id === "day_complete" ||
+                data.nextBestAction.ctaText?.toLowerCase().includes("summary")
+              ) {
+                setSummaryModalVisible(true);
               }
             }}
           />
         )}
+
+        {/* Daily Meal Slot Tracker / Log Meal Indicator */}
+        <MealSlotTracker
+          meals={data.timelineMeals}
+          onPressSlot={(slot) => openCapture(slot)}
+          onOpenRemindersModal={() => setRemindersModalVisible(true)}
+        />
 
         {/* Daily Target Balance Card (Ring + Macro Bars) */}
         <Card style={styles.targetsCard}>
@@ -201,6 +266,21 @@ export default function TodayScreen() {
           onDeleteMeal={handleDeleteMeal}
           onPressLogMeal={() => openCapture()}
         />
+
+        {/* Reset Flow to Blank Slate */}
+        <View style={styles.resetContainer}>
+          <Pressable
+            style={({ pressed }) => [styles.resetButton, pressed && { opacity: 0.7 }]}
+            onPress={handleResetFlow}
+            disabled={isResetting}
+            accessibilityRole="button"
+            accessibilityLabel="Reset account to blank slate"
+          >
+            <Text style={styles.resetButtonText}>
+              {isResetting ? "Resetting..." : "↺ Reset Flow to Blank Slate"}
+            </Text>
+          </Pressable>
+        </View>
       </ScrollView>
 
       {/* Streak & Achievements Modal Sheet */}
@@ -209,6 +289,21 @@ export default function TodayScreen() {
         onClose={() => setStreakModalVisible(false)}
         streak={data.streak}
         mealsCount={data.timelineMeals.length}
+      />
+
+      {/* Day Summary Modal Sheet */}
+      <DaySummaryModal
+        visible={summaryModalVisible}
+        onClose={() => setSummaryModalVisible(false)}
+        data={data}
+      />
+
+      {/* Smart Meal Reminders Modal Sheet */}
+      <MealRemindersModal
+        visible={remindersModalVisible}
+        onClose={() => setRemindersModalVisible(false)}
+        meals={data.timelineMeals}
+        currentStreakDays={data.streak?.currentStreakDays ?? 0}
       />
     </>
   );
@@ -309,5 +404,23 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     textAlign: "center",
     maxWidth: 320,
+  },
+  resetContainer: {
+    alignItems: "center",
+    paddingVertical: spacing.lg,
+    marginTop: spacing.md,
+  },
+  resetButton: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.border.subtle,
+    backgroundColor: colors.bg.subtle,
+  },
+  resetButtonText: {
+    ...typography.caption,
+    color: colors.text.muted,
+    fontWeight: "600",
   },
 });

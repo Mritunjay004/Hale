@@ -62,6 +62,37 @@ export function evaluateInsightRules(ctx: InsightContext): InsightCandidate[] {
     });
   }
 
+  // Rule 2b: Meal-Based Soluble Fiber Boost
+  if (ctx.recentLoggedMealCount >= 1 && (ctx.consumedKcalToday > 500 || ctx.flaggedBiomarkersCount > 0)) {
+    candidates.push({
+      type: "fiber_boost",
+      priority: 75,
+      facts: {
+        consumedKcal: ctx.consumedKcalToday,
+        hasFlaggedMarkers: ctx.flaggedBiomarkersCount > 0,
+      },
+      defaultText: "Pair your meals with a soluble fiber boost today.",
+      defaultWhy: "Soluble prebiotic fiber forms a gel matrix in your gut that binds LDL cholesterol and blunts post-prandial glucose surges.",
+      actionableTip: "Add a katori of raw salad (kheera/kakdi), chia seeds, or sautéed greens to your next plate.",
+    });
+  }
+
+  // Rule 2c: Post-Meal Walking & Calorie Balance Steps (NEAT)
+  if (ctx.recentLoggedMealCount >= 1 && ctx.consumedKcalToday > 600) {
+    const bufferSteps = Math.min(3000, Math.max(1800, Math.round((ctx.consumedKcalToday * 0.15) / 0.038 / 100) * 100));
+    candidates.push({
+      type: "steps_activity_buffer",
+      priority: 65,
+      facts: {
+        consumedKcal: ctx.consumedKcalToday,
+        suggestedSteps: bufferSteps,
+      },
+      defaultText: `A post-meal stroll of ~${bufferSteps} steps activates muscular glucose uptake.`,
+      defaultWhy: "Walking for 15–20 minutes after eating activates GLUT4 transporters in leg muscles without requiring insulin, blunting blood sugar spikes by up to 30%.",
+      actionableTip: `Take a light 15–20 minute walk (~${bufferSteps} steps) after lunch or dinner to burn ~80–120 kcal effortlessly.`,
+    });
+  }
+
   // Rule 3: Streak Milestone Celebration
   if (ctx.streakDays > 0 && ctx.streakDays % 3 === 0) {
     candidates.push({

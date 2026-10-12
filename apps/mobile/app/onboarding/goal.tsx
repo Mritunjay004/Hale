@@ -14,9 +14,10 @@ import { Button } from "../../src/ui/Button";
 import { Card } from "../../src/ui/Card";
 import { OnboardingHeader } from "../../src/features/onboarding/OnboardingHeader";
 import { useOnboardingStore } from "../../src/features/onboarding/store";
+import type { GoalType } from "@hale/shared";
 
 interface GoalOption {
-  type: "fat_loss" | "maintain" | "muscle" | "health";
+  type: GoalType;
   title: string;
   subtitle: string;
   emoji: string;
@@ -30,19 +31,19 @@ const GOAL_OPTIONS: GoalOption[] = [
     emoji: "🔥",
   },
   {
-    type: "muscle",
+    type: "muscle_gain",
     title: "Build Muscle",
     subtitle: "High protein intake with controlled surplus",
     emoji: "💪",
   },
   {
-    type: "maintain",
+    type: "maintenance",
     title: "Maintain Weight",
     subtitle: "Calorie equilibrium with balanced energy",
     emoji: "⚖️",
   },
   {
-    type: "health",
+    type: "eat_healthier",
     title: "Eat Healthier",
     subtitle: "Focus on micronutrients, fiber, and meal consistency",
     emoji: "🥗",
@@ -53,15 +54,15 @@ export default function GoalScreen() {
   const router = useRouter();
   const store = useOnboardingStore();
 
-  const [goalType, setGoalType] = useState<GoalOption["type"]>(store.goalType);
+  const [goalType, setGoalType] = useState<GoalType>(store.goalType);
   const [targetWeight, setTargetWeight] = useState(
     store.targetWeightKg ? store.targetWeightKg.toString() : ""
   );
-  const [timeframeWeeks, setTimeframeWeeks] = useState(
-    store.timeframeWeeks ? store.timeframeWeeks.toString() : "12"
+  const [targetWeeks, setTargetWeeks] = useState(
+    store.targetWeeks ? store.targetWeeks.toString() : "12"
   );
 
-  const needsTargetWeight = goalType === "fat_loss" || goalType === "muscle";
+  const needsTargetWeight = goalType === "fat_loss" || goalType === "muscle_gain";
 
   const handleNext = () => {
     let finalTargetWeightKg: number | undefined = undefined;
@@ -75,7 +76,7 @@ export default function GoalScreen() {
       }
       finalTargetWeightKg = parsedWeight;
 
-      const parsedWeeks = parseInt(timeframeWeeks, 10);
+      const parsedWeeks = parseInt(targetWeeks, 10);
       if (isNaN(parsedWeeks) || parsedWeeks < 2 || parsedWeeks > 104) {
         Alert.alert("Timeframe", "Please enter a timeframe between 2 and 52 weeks.");
         return;
@@ -86,7 +87,7 @@ export default function GoalScreen() {
     store.updateData({
       goalType,
       targetWeightKg: finalTargetWeightKg,
-      timeframeWeeks: finalWeeks,
+      targetWeeks: finalWeeks,
     });
 
     router.push("/onboarding/lifestyle");
@@ -159,8 +160,8 @@ export default function GoalScreen() {
               <TextInput
                 style={styles.input}
                 keyboardType="number-pad"
-                value={timeframeWeeks}
-                onChangeText={setTimeframeWeeks}
+                value={targetWeeks}
+                onChangeText={setTargetWeeks}
                 placeholder="e.g. 12"
               />
             </View>

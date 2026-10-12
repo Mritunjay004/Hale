@@ -6,11 +6,13 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { colors, spacing, radius, typography } from "../../theme/tokens";
 import { Button } from "../../ui/Button";
 import { Card } from "../../ui/Card";
 import { api } from "../../lib/api-client";
+import { generateUUID } from "../../lib/uuid";
 import { lightImpact, mediumImpact, successNotification } from "../../lib/haptics";
 import type { ParsedMeal, MealItem, MealType, MealSource } from "@hale/shared";
 
@@ -18,6 +20,8 @@ interface ConfirmationSheetProps {
   parsedMeal: ParsedMeal;
   source: MealSource;
   rawInput?: string;
+  loggedMeals?: Array<{ mealType: MealType; loggedAt?: string; totalKcal?: number }>;
+  suggestedMealType?: string;
   onSaved: () => void;
   onBack: () => void;
 }
@@ -28,13 +32,44 @@ export function MealConfirmationContent({
   parsedMeal,
   source,
   rawInput,
+  loggedMeals,
+  suggestedMealType,
   onSaved,
   onBack,
 }: ConfirmationSheetProps) {
-  const [mealType, setMealType] = useState<MealType>(parsedMeal.mealType);
+  // Count meals logged today
+  const loggedCounts: Record<MealType, number> = {
+    breakfast: 0,
+    lunch: 0,
+    snack: 0,
+    dinner: 0,
+  };
+  for (const m of loggedMeals ?? []) {
+    if (m.mealType in loggedCounts) {
+      loggedCounts[m.mealType as MealType]++;
+    }
+  }
+
+  // Intelligent initial meal type selection:
+  // 1. If user tapped a specific CTA (e.g. "Log Lunch"), respect suggestedMealType
+  // 2. If dinner was already logged today and AI returned dinner, auto-select snack to avoid accidental duplicate dinners
+  // 3. Otherwise use parsedMeal.mealType
+  const resolveInitialMealType = (): MealType => {
+    if (suggestedMealType && MEAL_TYPES.includes(suggestedMealType as MealType)) {
+      return suggestedMealType as MealType;
+    }
+    if (parsedMeal.mealType === "dinner" && loggedCounts.dinner > 0) {
+      return "snack";
+    }
+    return parsedMeal.mealType;
+  };
+
+  const [mealType, setMealType] = useState<MealType>(resolveInitialMealType);
   const [items, setItems] = useState<MealItem[]>(parsedMeal.items);
   const [isSaving, setIsSaving] = useState(false);
   const isSkipped = parsedMeal.isSkipped;
+
+  const isDuplicateMealType = mealType !== "snack" && (loggedCounts[mealType] ?? 0) > 0;
 
   // Live recalculate totals
   const totalKcal = items.reduce((sum, item) => sum + item.kcal, 0);
@@ -70,12 +105,12 @@ export function MealConfirmationContent({
     setItems((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleSave = async () => {
+  const executeSave = async (targetType: MealType) => {
     setIsSaving(true);
     try {
-      const idempotencyKey = crypto.randomUUID();
+      const idempotencyKey = generateUUID();
       await api.post("/meals", {
-        mealType,
+        mealType: targetType,
         source,
         rawInput,
         items,
@@ -91,11 +126,46 @@ export function MealConfirmationContent({
       successNotification();
       onSaved();
     } catch (err) {
-      console.error(err);
-      onSaved();
+      console.error("Failed to save meal:", err);
+      Alert.alert(
+        "Could Not Save Meal",
+        err instanceof Error ? err.message : "An unexpected error occurred while saving."
+      );
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleSave = () => {
+    if (isDuplicateMealType) {
+      const typeCapitalized = mealType.charAt(0).toUpperCase() + mealType.slice(1);
+      Alert.alert(
+        `Additional ${typeCapitalized}?`,
+        `You already have ${loggedCounts[mealType]} ${typeCapitalized} logged today. Do you want to save this as an additional ${typeCapitalized} portion, or switch to Snack?`,
+        [
+          {
+            text: "Save as Snack",
+            onPress: () => {
+              setMealType("snack");
+              executeSave("snack");
+            },
+          },
+          {
+            text: `Confirm 2nd ${typeCapitalized}`,
+            onPress: () => {
+              executeSave(mealType);
+            },
+          },
+          {
+            text: "Cancel",
+            style: "cancel",
+          },
+        ]
+      );
+      return;
+    }
+
+    executeSave(mealType);
   };
 
   if (isSkipped) {
@@ -123,6 +193,8 @@ export function MealConfirmationContent({
       <View style={styles.mealTypeRow}>
         {MEAL_TYPES.map((t) => {
           const isSelected = mealType === t;
+          const count = loggedCounts[t];
+          const hasLogged = t !== "snack" && count > 0;
           return (
             <Pressable
               key={t}
@@ -136,11 +208,27 @@ export function MealConfirmationContent({
                 ]}
               >
                 {t.charAt(0).toUpperCase() + t.slice(1)}
+                {hasLogged ? ` (${count})` : ""}
               </Text>
             </Pressable>
           );
         })}
       </View>
+
+      {/* Duplicate Warning Banner */}
+      {isDuplicateMealType && (
+        <View style={styles.duplicateWarningBanner}>
+          <Text style={styles.duplicateWarningIcon}>⚠️</Text>
+          <View style={styles.duplicateWarningContent}>
+            <Text style={styles.duplicateWarningTitle}>
+              {mealType.charAt(0).toUpperCase() + mealType.slice(1)} already logged today ({loggedCounts[mealType]} {loggedCounts[mealType] === 1 ? "entry" : "entries"})
+            </Text>
+            <Text style={styles.duplicateWarningSub}>
+              Saving will add an additional {mealType} portion. If this was an evening bite or dessert, tap "Snack" above.
+            </Text>
+          </View>
+        </View>
+      )}
 
       {/* Live Totals Card */}
       <Card style={styles.totalsCard}>
@@ -233,6 +321,35 @@ const styles = StyleSheet.create({
   mealTypeRow: {
     flexDirection: "row",
     gap: spacing.xs,
+  },
+  duplicateWarningBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: "#FEF3C7",
+    borderColor: "#F59E0B",
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    gap: spacing.xs,
+  },
+  duplicateWarningIcon: {
+    fontSize: 16,
+    marginTop: 1,
+  },
+  duplicateWarningContent: {
+    flex: 1,
+  },
+  duplicateWarningTitle: {
+    ...typography.caption,
+    fontWeight: "700",
+    color: "#92400E",
+  },
+  duplicateWarningSub: {
+    ...typography.caption,
+    fontSize: 12,
+    color: "#B45309",
+    marginTop: 2,
+    lineHeight: 16,
   },
   typeChip: {
     flex: 1,

@@ -24,7 +24,15 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }
 export function BiomarkerTrendCard({ trend }: BiomarkerTrendCardProps) {
   const latestPoint = trend.history[trend.history.length - 1];
   const latestValue = latestPoint ? latestPoint.value : null;
-  const statusCfg = STATUS_CONFIG[latestPoint?.status ?? "normal"] ?? STATUS_CONFIG.normal!;
+
+  // Accurately compute status against reference range
+  const computedStatus = (() => {
+    if (latestValue == null) return "unknown";
+    if (trend.refLow != null && latestValue < trend.refLow) return "low";
+    if (trend.refHigh != null && latestValue > trend.refHigh) return "high";
+    return latestPoint?.status ?? "normal";
+  })();
+  const statusCfg = STATUS_CONFIG[computedStatus] ?? STATUS_CONFIG.normal!;
 
   // Range bar positioning
   const minScale = Math.min(trend.refLow * 0.7, (latestValue ?? trend.refLow) * 0.85);

@@ -15,6 +15,21 @@ import { useOnboardingStore } from "../../src/features/onboarding/store";
 import { api } from "../../src/lib/api-client";
 import type { PlanResponse } from "@hale/shared";
 
+function formatFriendlyDate(dateStr?: string | null): string {
+  if (!dateStr) return "";
+  try {
+    const parts = dateStr.split("-").map(Number);
+    if (parts.length === 3 && parts[0] && parts[1] && parts[2]) {
+      const date = new Date(parts[0], parts[1] - 1, parts[2]);
+      return date.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+    }
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? dateStr : d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+  } catch {
+    return dateStr;
+  }
+}
+
 export default function PlanPayoffScreen() {
   const router = useRouter();
   const store = useOnboardingStore();
@@ -22,6 +37,16 @@ export default function PlanPayoffScreen() {
   const [pushbackAccepted, setPushbackAccepted] = useState(false);
 
   const plan = store.calculatedPlan;
+
+  const handleAcceptPushback = () => {
+    setPushbackAccepted(true);
+    if (pushback?.proposedWeeks) {
+      store.updateData({
+        targetWeeks: pushback.proposedWeeks,
+        acceptedPushbackDate: pushback.proposedTargetDate ?? null,
+      });
+    }
+  };
 
   // Fallback defaults if accessed directly
   const calorieTarget = plan?.calorieTarget ?? 1950;
@@ -65,7 +90,7 @@ export default function PlanPayoffScreen() {
         dietPreference: store.dietPreference,
         goalType: store.goalType,
         targetWeightKg: store.targetWeightKg,
-        timeframeWeeks: store.timeframeWeeks,
+        targetWeeks: store.targetWeeks,
         notesTags: store.notesTags,
       });
 
@@ -87,30 +112,52 @@ export default function PlanPayoffScreen() {
       />
 
       {/* Respectful Pushback Banner (if requested timeline was too aggressive) */}
-      {pushback && !pushbackAccepted && (
-        <Card style={styles.pushbackCard}>
-          <View style={styles.pushbackTag}>
-            <Text style={styles.pushbackTagText}>ASSISTANT RECOMMENDATION</Text>
+      {pushback && (
+        <Card style={[styles.pushbackCard, pushbackAccepted && styles.pushbackCardAccepted]}>
+          <View style={styles.pushbackHeaderRow}>
+            <View style={[styles.pushbackTag, pushbackAccepted && styles.pushbackTagAccepted]}>
+              <Text style={[styles.pushbackTagText, pushbackAccepted && styles.pushbackTagTextAccepted]}>
+                {pushbackAccepted ? "PACE ADJUSTED" : "ASSISTANT RECOMMENDATION"}
+              </Text>
+            </View>
+            {pushbackAccepted && (
+              <Text style={styles.acceptedCheck}>✓ {pushback.proposedWeeks} weeks applied</Text>
+            )}
           </View>
-          <Text style={styles.pushbackTitle}>Pacing Adjustment</Text>
-          <Text style={styles.pushbackBody}>{pushback.reason}</Text>
-          <View style={styles.pushbackActions}>
-            <Button
-              label={`Accept ${pushback.proposedTargetDate ? `(Aim for ${pushback.proposedTargetDate})` : "Safe Timeline"}`}
-              onPress={() => setPushbackAccepted(true)}
-              style={{ flex: 1 }}
-            />
-          </View>
+
+          <Text style={styles.pushbackTitle}>
+            {pushbackAccepted ? "Safe Pace Applied" : "Pacing Adjustment"}
+          </Text>
+
+          <Text style={styles.pushbackBody}>
+            {pushbackAccepted
+              ? `Timeline adjusted to ${pushback.proposedWeeks} weeks${pushback.proposedTargetDate ? ` (~${formatFriendlyDate(pushback.proposedTargetDate)})` : ""} to ensure sustainable fat loss of ~${pushback.safeRateKgPerWeek} kg/week without muscle loss.`
+              : `${pushback.reason} To protect your lean muscle and keep your metabolism steady, we recommend aiming for ${pushback.proposedWeeks} weeks${pushback.proposedTargetDate ? ` (~${formatFriendlyDate(pushback.proposedTargetDate)})` : ""} at a safe pace of ~${pushback.safeRateKgPerWeek} kg/week.`}
+          </Text>
+
+          {!pushbackAccepted && (
+            <View style={styles.pushbackActions}>
+              <Button
+                label={
+                  pushback.proposedWeeks
+                    ? `Accept (Aim for ${pushback.proposedWeeks} weeks)`
+                    : "Accept Safe Timeline"
+                }
+                onPress={handleAcceptPushback}
+                style={{ flex: 1 }}
+              />
+            </View>
+          )}
         </Card>
       )}
 
       {/* Main Calorie & Macro Target Card */}
       <Card style={styles.heroTargetCard}>
         <Text style={styles.targetLabel}>DAILY CALORIE TARGET</Text>
-        <Text style={styles.targetNumber}>
-          {calorieTarget}{" "}
+        <View style={styles.targetNumberRow}>
+          <Text style={styles.targetNumber}>{calorieTarget}</Text>
           <Text style={styles.targetUnit}>kcal / day</Text>
-        </Text>
+        </View>
 
         <View style={styles.whyBox}>
           <Text style={styles.whyText}>💡 {whyCalorie}</Text>
@@ -183,6 +230,16 @@ const styles = StyleSheet.create({
     borderLeftColor: colors.brand.accent,
     gap: spacing.xs,
   },
+  pushbackCardAccepted: {
+    backgroundColor: colors.brand.primaryLight,
+    borderColor: "#C5D8C9",
+    borderLeftColor: colors.semantic.success,
+  },
+  pushbackHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   pushbackTag: {
     alignSelf: "flex-start",
     backgroundColor: "rgba(224, 122, 95, 0.2)",
@@ -190,9 +247,20 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: radius.sm,
   },
+  pushbackTagAccepted: {
+    backgroundColor: "rgba(45, 106, 79, 0.15)",
+  },
   pushbackTagText: {
     ...typography.badge,
     color: colors.brand.accent,
+  },
+  pushbackTagTextAccepted: {
+    color: colors.semantic.success,
+  },
+  acceptedCheck: {
+    ...typography.caption,
+    color: colors.semantic.success,
+    fontWeight: "600",
   },
   pushbackTitle: {
     ...typography.h3,
@@ -215,13 +283,23 @@ const styles = StyleSheet.create({
     ...typography.badge,
     color: "rgba(255, 255, 255, 0.8)",
   },
+  targetNumberRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: spacing.xs,
+    paddingVertical: spacing.xxs,
+  },
   targetNumber: {
-    ...typography.display,
+    fontSize: 34,
+    lineHeight: 42,
+    fontWeight: "700",
     color: colors.text.inverse,
+    includeFontPadding: false,
   },
   targetUnit: {
     ...typography.h3,
     color: "rgba(255, 255, 255, 0.85)",
+    marginBottom: 4,
   },
   whyBox: {
     backgroundColor: "rgba(255, 255, 255, 0.15)",

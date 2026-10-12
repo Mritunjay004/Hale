@@ -1,17 +1,31 @@
-import React, { useState } from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Text, Pressable, StyleSheet, Platform } from "react-native";
 import { Tabs, useRouter } from "expo-router";
+import * as Notifications from "expo-notifications";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBreakpoint } from "../../src/lib/breakpoint";
-import { colors, spacing, radius, typography, shadows } from "../../src/theme/tokens";
+import {
+  colors,
+  spacing,
+  radius,
+  typography,
+  shadows,
+} from "../../src/theme/tokens";
 import { lightImpact } from "../../src/lib/haptics";
 import { ResponsiveSheet } from "../../src/ui/ResponsiveSheet";
 import { Button } from "../../src/ui/Button";
+import {
+  IconHome,
+  IconCoach,
+  IconReports,
+  IconPlus,
+} from "../../src/ui/icons";
 import { MealCaptureContent } from "../../src/features/food-log/MealCaptureContent";
 import { MealConfirmationContent } from "../../src/features/food-log/MealConfirmationContent";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { api } from "../../src/lib/api-client";
 import { useMealCaptureStore } from "../../src/features/food-log/useMealCaptureStore";
-import type { ParsedMeal, MealSource } from "@hale/shared";
+import type { ParsedMeal, MealSource, TodayResponse } from "@hale/shared";
 
 export default function TabsLayout() {
   const { isDesktop } = useBreakpoint();
@@ -22,12 +36,18 @@ export default function TabsLayout() {
     parsedMeal,
     mealSource,
     rawInput,
+    suggestedMealType,
     openCapture,
     closeCapture,
     setParsed,
     resetToCapture,
   } = useMealCaptureStore();
   const router = useRouter();
+
+  const { data: todayData } = useQuery<TodayResponse>({
+    queryKey: ["today"],
+    queryFn: () => api.get<TodayResponse>("/today"),
+  });
 
   const handleOpenSheet = () => {
     lightImpact();
@@ -42,6 +62,20 @@ export default function TabsLayout() {
     closeCapture();
     queryClient.invalidateQueries({ queryKey: ["today"] });
   };
+
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      const payload = response.notification.request.content.data;
+      if (payload?.action === "log_meal" && payload?.mealType) {
+        openCapture(payload.mealType as any);
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [openCapture]);
 
   return (
     <>
@@ -66,7 +100,11 @@ export default function TabsLayout() {
           name="index"
           options={{
             title: "Today",
-            tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>🏠</Text>,
+            tabBarIcon: ({ color, focused }) => (
+              <View style={[styles.tabIconWrapper, focused && styles.tabIconWrapperActive]}>
+                <IconHome size={20} color={color} focused={focused} />
+              </View>
+            ),
           }}
           listeners={{
             tabPress: () => {
@@ -83,15 +121,16 @@ export default function TabsLayout() {
             tabBarButton: () => (
               <Pressable
                 onPress={handleOpenSheet}
-                style={[
+                style={({ pressed }) => [
                   styles.fabContainer,
                   { bottom: insets.bottom > 0 ? insets.bottom / 2 : 0 },
+                  pressed && styles.fabPressed,
                 ]}
                 accessibilityRole="button"
                 accessibilityLabel="Log Food"
               >
                 <View style={styles.fab}>
-                  <Text style={styles.fabPlus}>+</Text>
+                  <IconPlus size={24} color={colors.text.inverse} strokeWidth={2.6} />
                 </View>
               </Pressable>
             ),
@@ -108,7 +147,11 @@ export default function TabsLayout() {
           name="chat"
           options={{
             title: "Coach",
-            tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>💬</Text>,
+            tabBarIcon: ({ color, focused }) => (
+              <View style={[styles.tabIconWrapper, focused && styles.tabIconWrapperActive]}>
+                <IconCoach size={20} color={color} focused={focused} />
+              </View>
+            ),
           }}
           listeners={{
             tabPress: () => {
@@ -121,7 +164,11 @@ export default function TabsLayout() {
           name="reports"
           options={{
             title: "Reports",
-            tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>📄</Text>,
+            tabBarIcon: ({ color, focused }) => (
+              <View style={[styles.tabIconWrapper, focused && styles.tabIconWrapperActive]}>
+                <IconReports size={20} color={color} focused={focused} />
+              </View>
+            ),
           }}
           listeners={{
             tabPress: () => {
@@ -135,13 +182,15 @@ export default function TabsLayout() {
       <ResponsiveSheet
         visible={logSheetVisible}
         onClose={handleCloseSheet}
-        title={parsedMeal ? "Confirm Meal" : "Log Meal (Under 10s)"}
+        title={parsedMeal ? "Confirm Meal" : "Log Meal"}
       >
         {parsedMeal ? (
           <MealConfirmationContent
             parsedMeal={parsedMeal}
             source={mealSource}
             rawInput={rawInput}
+            loggedMeals={todayData?.timelineMeals ?? []}
+            suggestedMealType={suggestedMealType}
             onSaved={handleSaved}
             onBack={resetToCapture}
           />
@@ -163,19 +212,30 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg.surface,
     borderTopColor: colors.border.subtle,
     borderTopWidth: 1,
-    height: 64,
-    paddingBottom: spacing.xs,
-    paddingTop: spacing.xs,
+    height: 60,
+    paddingTop: 5,
   },
   desktopHidden: {
     display: "none",
   },
   tabLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "600",
+    letterSpacing: 0.2,
+    marginTop: 2,
+  },
+  tabIconWrapper: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 3,
+    borderRadius: radius.full,
+  },
+  tabIconWrapperActive: {
+    backgroundColor: colors.brand.primaryLight,
   },
   fabContainer: {
-    top: -18,
+    top: -16,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -186,13 +246,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.brand.primary,
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 2,
+    borderColor: colors.bg.surface,
     ...shadows.floating,
   },
-  fabPlus: {
-    color: colors.text.inverse,
-    fontSize: 28,
-    fontWeight: "400",
-    lineHeight: 32,
+  fabPressed: {
+    transform: [{ scale: 0.93 }],
+    opacity: 0.9,
   },
   sheetContent: {
     gap: spacing.md,
@@ -227,4 +287,3 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
 });
-

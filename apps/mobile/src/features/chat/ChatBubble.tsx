@@ -7,7 +7,7 @@ interface ChatBubbleProps {
   message: ChatMessage;
 }
 
-export function ChatBubble({ message }: ChatBubbleProps) {
+export const ChatBubble = React.memo(function ChatBubble({ message }: ChatBubbleProps) {
   const isUser = message.role === "user";
 
   return (
@@ -34,9 +34,9 @@ export function ChatBubble({ message }: ChatBubbleProps) {
       </View>
     </View>
   );
-}
+});
 
-function ToolResultCard({ tool }: { tool: ToolCall }) {
+const ToolResultCard = React.memo(function ToolResultCard({ tool }: { tool: ToolCall }) {
   if (tool.name === "log_meal") {
     return (
       <View style={styles.toolCard}>
@@ -75,7 +75,7 @@ function ToolResultCard({ tool }: { tool: ToolCall }) {
   }
 
   return null;
-}
+});
 
 const styles = StyleSheet.create({
   container: {

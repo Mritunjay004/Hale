@@ -5,3 +5,6 @@ export * from "./InsightCard";
 export * from "./MealTimeline";
 export * from "./StreakBadgeModal";
 export * from "./FocusHabitsCard";
+export * from "./DaySummaryModal";
+export * from "./MealSlotTracker";
+export * from "./MealRemindersModal";

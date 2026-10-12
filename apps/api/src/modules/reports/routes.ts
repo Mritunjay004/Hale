@@ -70,21 +70,26 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
       if (biomarker) {
         const param = body.parameters.find((p) => p.canonicalKey === habitKey);
         const isLow = param?.status === "low";
-        const h = isLow
-          ? biomarker.goalLinkedHabits.whenLow ?? biomarker.goalLinkedHabits.whenHigh
-          : biomarker.goalLinkedHabits.whenHigh ?? biomarker.goalLinkedHabits.whenLow;
+        const isHigh = param?.status === "high";
 
-        if (h) {
-          await db.insert(focusHabits).values({
-            id: crypto.randomUUID(),
-            userId,
-            type: `biomarker_${biomarker.key}`,
-            title: h.title,
-            why: `${biomarker.name} was ${param?.status ?? "flagged"} in your report. ${h.why}`,
-            metric: h.metric,
-            source: "report",
-            active: true,
-          });
+        // Only create habits for genuinely flagged out-of-range biomarkers
+        if (param && (isLow || isHigh)) {
+          const h = isLow
+            ? biomarker.goalLinkedHabits.whenLow ?? biomarker.goalLinkedHabits.whenHigh
+            : biomarker.goalLinkedHabits.whenHigh ?? biomarker.goalLinkedHabits.whenLow;
+
+          if (h) {
+            await db.insert(focusHabits).values({
+              id: crypto.randomUUID(),
+              userId,
+              type: `biomarker_${biomarker.key}`,
+              title: h.title,
+              why: `${biomarker.name} was ${param.status} in your report. ${h.why}`,
+              metric: h.metric,
+              source: "report",
+              active: true,
+            });
+          }
         }
       }
     }
@@ -208,5 +213,41 @@ export async function reportRoutes(app: FastifyInstance): Promise<void> {
     };
 
     return reply.status(200).send(response);
+  });
+
+  /**
+   * DELETE /v1/reports/:id
+   * Delete an uploaded report and remove all its parameters and findings from user context.
+   */
+  app.delete("/reports/:id", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const userId = request.userId;
+
+    const existing = await db
+      .select({ id: reports.id })
+      .from(reports)
+      .where(and(eq(reports.id, id), eq(reports.userId, userId)))
+      .limit(1);
+
+    if (existing.length === 0) {
+      throw new NotFoundError("Report");
+    }
+
+    await db.delete(reportParameters).where(eq(reportParameters.reportId, id));
+    await db.delete(reports).where(and(eq(reports.id, id), eq(reports.userId, userId)));
+
+    // Purge report-generated focus habits if no other reports remain
+    const remainingReports = await db
+      .select({ id: reports.id })
+      .from(reports)
+      .where(eq(reports.userId, userId));
+
+    if (remainingReports.length === 0) {
+      await db
+        .delete(focusHabits)
+        .where(and(eq(focusHabits.userId, userId), eq(focusHabits.source, "report")));
+    }
+
+    return reply.status(200).send({ id, deleted: true });
   });
 }

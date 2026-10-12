@@ -13,7 +13,10 @@ interface ReportUploadSheetProps {
   onClose: () => void;
 }
 
-export function ReportUploadSheet({ onExtracted, onClose }: ReportUploadSheetProps) {
+export function ReportUploadSheet({
+  onExtracted,
+  onClose,
+}: ReportUploadSheetProps) {
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractStatusText, setExtractStatusText] = useState("");
 
@@ -22,7 +25,10 @@ export function ReportUploadSheet({ onExtracted, onClose }: ReportUploadSheetPro
     setIsExtracting(true);
     setExtractStatusText("Extracting biomarkers from comprehensive panel...");
     try {
-      const result = await api.post<ExtractedReportResponse>("/reports/extract", {});
+      const result = await api.post<ExtractedReportResponse>(
+        "/reports/extract",
+        {},
+      );
       onExtracted(result);
     } catch (err) {
       console.error("Failed to extract report:", err);
@@ -47,7 +53,8 @@ export function ReportUploadSheet({ onExtracted, onClose }: ReportUploadSheetPro
           quality: 0.6,
         });
       } else {
-        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        const { status } =
+          await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== "granted") {
           alert("Photos permission is needed to select report images.");
           return;
@@ -63,10 +70,13 @@ export function ReportUploadSheet({ onExtracted, onClose }: ReportUploadSheetPro
         const asset = result.assets[0];
         setIsExtracting(true);
         setExtractStatusText("Analyzing document & extracting biomarkers...");
-        const extracted = await api.post<ExtractedReportResponse>("/reports/extract", {
-          base64: asset.base64,
-          mimeType: asset.mimeType || "image/jpeg",
-        });
+        const extracted = await api.post<ExtractedReportResponse>(
+          "/reports/extract",
+          {
+            base64: asset.base64,
+            mimeType: asset.mimeType || "image/jpeg",
+          },
+        );
         onExtracted(extracted);
       }
     } catch (err) {
@@ -83,7 +93,8 @@ export function ReportUploadSheet({ onExtracted, onClose }: ReportUploadSheetPro
         <Text style={styles.loadingTitle}>Extracting Biomarkers</Text>
         <Text style={styles.loadingSub}>{extractStatusText}</Text>
         <Text style={styles.privacyNote}>
-          🔒 Privacy Notice: Raw medical images are processed in memory and never stored on servers.
+          🔒 Privacy Notice: Raw medical images are processed in your device and
+          never stored.
         </Text>
       </View>
     );
@@ -92,13 +103,18 @@ export function ReportUploadSheet({ onExtracted, onClose }: ReportUploadSheetPro
   return (
     <View style={styles.container}>
       <Text style={styles.subtitle}>
-        Upload any blood test, lipid panel, or metabolic lab report. Hale extracts your biomarkers and connects them to actionable daily diet habits.
+        Upload any blood test, lipid panel, or metabolic lab report. Hale
+        extracts your biomarkers and connects them to actionable daily diet
+        habits.
       </Text>
 
       {/* Upload Option Cards */}
       <View style={styles.optionsList}>
         <Pressable
-          style={({ pressed }) => [styles.optionCard, pressed && { opacity: 0.85 }]}
+          style={({ pressed }) => [
+            styles.optionCard,
+            pressed && { opacity: 0.85 },
+          ]}
           onPress={() => handlePickImage(true)}
           accessibilityRole="button"
           accessibilityLabel="Take Photo with Camera"
@@ -111,7 +127,10 @@ export function ReportUploadSheet({ onExtracted, onClose }: ReportUploadSheetPro
         </Pressable>
 
         <Pressable
-          style={({ pressed }) => [styles.optionCard, pressed && { opacity: 0.85 }]}
+          style={({ pressed }) => [
+            styles.optionCard,
+            pressed && { opacity: 0.85 },
+          ]}
           onPress={() => handlePickImage(false)}
           accessibilityRole="button"
           accessibilityLabel="Choose from Photo Library"
@@ -119,7 +138,9 @@ export function ReportUploadSheet({ onExtracted, onClose }: ReportUploadSheetPro
           <Text style={styles.optionEmoji}>🖼️</Text>
           <View style={styles.optionTextGroup}>
             <Text style={styles.optionTitle}>Photo Library / Document</Text>
-            <Text style={styles.optionDesc}>Upload report image or screenshot</Text>
+            <Text style={styles.optionDesc}>
+              Upload report image or screenshot
+            </Text>
           </View>
         </Pressable>
 
@@ -135,7 +156,9 @@ export function ReportUploadSheet({ onExtracted, onClose }: ReportUploadSheetPro
         >
           <Text style={styles.optionEmoji}>🧪</Text>
           <View style={styles.optionTextGroup}>
-            <Text style={styles.sampleOptionTitle}>Try with Sample Blood Panel</Text>
+            <Text style={styles.sampleOptionTitle}>
+              Try with Sample Blood Panel
+            </Text>
             <Text style={styles.optionDesc}>
               Instant reviewer demo: extracts Vitamin D, LDL, Glucose, HbA1c
             </Text>
@@ -144,10 +167,16 @@ export function ReportUploadSheet({ onExtracted, onClose }: ReportUploadSheetPro
       </View>
 
       <Text style={styles.privacyDisclaimer}>
-        🔒 Hale processes documents strictly in-memory. No raw images or PDFs are stored server-side.
+        🔒 Hale processes documents strictly in-memory. No raw images or PDFs
+        are stored server-side.
       </Text>
 
-      <Button label="Close" variant="secondary" onPress={onClose} style={{ marginTop: spacing.xs }} />
+      <Button
+        label="Close"
+        variant="secondary"
+        onPress={onClose}
+        style={{ marginTop: spacing.xs }}
+      />
     </View>
   );
 }
@@ -235,4 +264,3 @@ const styles = StyleSheet.create({
     maxWidth: 260,
   },
 });
-

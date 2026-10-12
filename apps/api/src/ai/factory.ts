@@ -29,7 +29,10 @@ class ResilientAIProvider implements LLMProvider, VisionProvider, SpeechToTextPr
     }
   }
 
-  async parseMealText(text: string, context?: { timeOfDay?: string }): Promise<ParsedMeal> {
+  async parseMealText(
+    text: string,
+    context?: { timeOfDay?: string | undefined; suggestedMealType?: string | undefined }
+  ): Promise<ParsedMeal> {
     if (this.primary) {
       try {
         return await this.primary.parseMealText(text, context);
@@ -43,13 +46,28 @@ class ResilientAIProvider implements LLMProvider, VisionProvider, SpeechToTextPr
   async parseMealImage(
     imageBuffer: Buffer,
     mimeType: string,
-    clientHint?: string
+    clientHint?: string,
+    suggestedMealType?: string
   ): Promise<ParsedMeal> {
     if (this.primary) {
       try {
-        return await this.primary.parseMealImage(imageBuffer, mimeType, clientHint);
+        return await this.primary.parseMealImage(imageBuffer, mimeType, clientHint, suggestedMealType);
       } catch (err) {
-        console.warn("⚠️ Live Vision call failed. Gracefully falling back to local engine:", err);
+        console.warn("⚠️ Live Vision call failed:", err);
+        // Never invent fake food items for photos. Return an honest unable-to-identify response.
+        return {
+          mealType: "snack",
+          items: [],
+          totalKcal: 0,
+          proteinG: 0,
+          carbsG: 0,
+          fatG: 0,
+          confidence: "low",
+          isFood: false,
+          isSkipped: false,
+          clarifyingQuestion:
+            "We couldn't clearly identify the food in this photo. Please describe what you ate or snap another photo with better lighting.",
+        };
       }
     }
     return this.fallback.parseMealImage(imageBuffer, mimeType, clientHint);
@@ -89,6 +107,13 @@ class ResilientAIProvider implements LLMProvider, VisionProvider, SpeechToTextPr
     onChunk: (delta: string) => void,
     onToolCall?: (toolName: string, args: Record<string, unknown>) => Promise<Record<string, unknown>>
   ): Promise<string> {
+    if (this.primary) {
+      try {
+        return await this.primary.chatStream(messages, groundedContext, onChunk, onToolCall);
+      } catch (err) {
+        console.warn("⚠️ Live Gemini chatStream failed. Falling back to local engine:", err);
+      }
+    }
     return this.fallback.chatStream(messages, groundedContext, onChunk, onToolCall);
   }
 

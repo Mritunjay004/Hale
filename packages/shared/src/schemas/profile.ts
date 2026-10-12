@@ -35,8 +35,8 @@ export const planRequestSchema = z.object({
   activityLevel: activityLevelEnum,
   dietPreference: dietPreferenceEnum.default("none"),
   goalType: goalTypeEnum,
-  targetWeightKg: z.number().optional(),
-  targetWeeks: z.number().optional(),
+  targetWeightKg: z.number().nullable().optional(),
+  targetWeeks: z.number().nullable().optional(),
   notesTags: z.array(z.string()).default([]),
 });
 
@@ -60,8 +60,16 @@ export const planResponseSchema = z.object({
   focusHabits: z.array(focusHabitSchema),
   pushback: pushbackSchema.optional(),
 });
+export const notificationPrefsSchema = z.object({
+  smartMealReminders: z.boolean().default(true),
+  eveningWrapUp: z.boolean().default(true),
+  weeklyReview: z.boolean().default(true),
+  quietHoursStart: z.string().default("22:00"),
+  quietHoursEnd: z.string().default("07:00"),
+});
 
 export const profileSchema = z.object({
+  id: z.string().optional(),
   userId: z.string(),
   age: z.number(),
   sex: sexEnum,
@@ -78,15 +86,7 @@ export const profileSchema = z.object({
   fatG: z.number(),
   notesTags: z.array(z.string()),
   focusHabits: z.array(focusHabitSchema),
-  notificationPrefs: z
-    .object({
-      smartMealReminders: z.boolean().default(true),
-      eveningWrapUp: z.boolean().default(true),
-      weeklyReview: z.boolean().default(true),
-      quietHoursStart: z.string().default("22:00"),
-      quietHoursEnd: z.string().default("07:00"),
-    })
-    .default({}),
+  notificationPrefs: notificationPrefsSchema.default({}),
 });
 
 export type Sex = z.infer<typeof sexEnum>;
@@ -96,6 +96,7 @@ export type DietPreference = z.infer<typeof dietPreferenceEnum>;
 export type FocusHabit = z.infer<typeof focusHabitSchema>;
 export type PlanRequestInput = z.infer<typeof planRequestSchema>;
 export type PlanResponse = z.infer<typeof planResponseSchema>;
+export type NotificationPrefs = z.infer<typeof notificationPrefsSchema>;
 export type Profile = z.infer<typeof profileSchema>;
 export type Pushback = z.infer<typeof pushbackSchema>;
 

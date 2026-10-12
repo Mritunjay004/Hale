@@ -30,7 +30,7 @@ export class GeminiAIProvider implements LLMProvider, VisionProvider {
    */
   async parseMealText(
     text: string,
-    context?: { timeOfDay?: string }
+    context?: { timeOfDay?: string | undefined; suggestedMealType?: string | undefined }
   ): Promise<ParsedMeal> {
     const systemInstruction = `You are an expert clinical nutritional assistant for the Hale Health app.
 Parse the user's food description into nutritional items, estimating reasonable quantities, kcal, and macros (protein, carbs, fat in grams).
@@ -70,7 +70,10 @@ Return JSON strictly adhering to this schema:
   "impactSummary": string (optional, e.g. "+520 kcal logged. 28g protein added toward daily target.")
 }`;
 
-    const prompt = `User logged: "${text}"\nTime context: ${context?.timeOfDay ?? "now"}`;
+    const mealHint = context?.suggestedMealType
+      ? `\nUser explicitly selected meal slot: "${context.suggestedMealType}" (please use mealType: "${context.suggestedMealType}" unless description clearly specifies another meal).`
+      : "";
+    const prompt = `User logged: "${text}"\nTime context: ${context?.timeOfDay ?? "now"}${mealHint}`;
 
     let lastError: unknown;
     for (const modelName of this.candidateModels) {
@@ -86,17 +89,8 @@ Return JSON strictly adhering to this schema:
 
         const result = await model.generateContent(prompt);
         const jsonText = result.response.text();
-        const rawObj = JSON.parse(jsonText);
-        if (rawObj.clarifyingQuestion === null) delete rawObj.clarifyingQuestion;
-        if (rawObj.impactSummary === null) delete rawObj.impactSummary;
-        if (rawObj.isFood === undefined || rawObj.isFood === null) rawObj.isFood = true;
-        if (rawObj.isSkipped === undefined || rawObj.isSkipped === null) rawObj.isSkipped = false;
-        if (Array.isArray(rawObj.items)) {
-          for (const item of rawObj.items) {
-            if (item.alternatives === null) delete item.alternatives;
-          }
-        }
-        const parsed = parsedMealSchema.parse(rawObj);
+        const fallbackMealType = (context?.suggestedMealType as any) || "lunch";
+        const parsed = normalizeParsedMealJson(jsonText, fallbackMealType);
         console.log(`✅ Live Gemini call succeeded with model ${modelName}`);
         return parsed;
       } catch (err) {
@@ -112,15 +106,54 @@ Return JSON strictly adhering to this schema:
   async parseMealImage(
     imageBuffer: Buffer,
     mimeType: string,
-    clientHint?: string
+    clientHint?: string,
+    suggestedMealType?: string
   ): Promise<ParsedMeal> {
-    const model = this.client.getGenerativeModel({
-      model: this.primaryModel,
-      generationConfig: {
-        responseMimeType: "application/json",
-        temperature: 0.2,
-      },
-    });
+    const systemInstruction = `You are an expert clinical nutritional vision assistant for the Hale Health app.
+Analyze the food, meal, beverage, dessert, or grocery items in the uploaded photograph.
+Identify every visible food item, dish, sweet, beverage, or snack with high accuracy.
+
+First-class support for Indian cuisine, sweets, and household portions:
+- Identify Indian sweets and mithai accurately:
+  * "Kaju Katli" / cashew fudge: standard diamond piece with silver vark is ~15-20g, ~50-60 kcal, ~1.2g protein, ~8g carbs, ~2.5g fat per piece. Estimate portions based on realistic consumption (e.g. 2-4 pieces for a typical serving, or total count if prominently displayed on a plate).
+  * "Gulab Jamun": ~150 kcal, 2.5g P, 22g C, 6g F per piece.
+  * "Rasgulla": ~125 kcal, 2.8g P, 25g C, 1.5g F per piece.
+  * "Besan Laddu": ~180 kcal, 3.5g P, 24g C, 8g F per piece.
+  * "Barfi" / "Peda": ~100-140 kcal per piece.
+- Household items:
+  * "katori" = 150ml (dal, curry, raita, curd)
+  * "roti/chapati" = ~120 kcal, 3g P, 22g C, 2g F per medium piece
+  * "bowl" = 200-250ml
+  * "cup" = 240ml
+- Western & global foods: estimate realistic portion and accurate macro breakdown.
+
+If the photograph does NOT contain food, drink, or groceries (e.g., a person, landscape, furniture, electronics, animal, document), set isFood: false, items: [], totalKcal: 0, proteinG: 0, carbsG: 0, fatG: 0, and provide a polite clarifyingQuestion asking for a food photo.
+
+Return JSON strictly adhering to this schema:
+{
+  "mealType": "breakfast" | "lunch" | "snack" | "dinner",
+  "items": [
+    {
+      "name": string,
+      "quantity": number,
+      "unit": string,
+      "kcal": number,
+      "proteinG": number,
+      "carbsG": number,
+      "fatG": number,
+      "confidence": "high" | "medium" | "low"
+    }
+  ],
+  "totalKcal": number,
+  "proteinG": number,
+  "carbsG": number,
+  "fatG": number,
+  "confidence": "high" | "medium" | "low",
+  "isFood": boolean,
+  "isSkipped": boolean,
+  "clarifyingQuestion": string (optional),
+  "impactSummary": string (optional, e.g. "+220 kcal logged. 5g protein added toward daily target.")
+}`;
 
     const imagePart = {
       inlineData: {
@@ -129,10 +162,42 @@ Return JSON strictly adhering to this schema:
       },
     };
 
-    const prompt = `Identify the food plate in this image and parse the items and portions into nutritional values. Hint: ${clientHint ?? "none"}`;
-    const result = await model.generateContent([prompt, imagePart]);
-    const jsonText = result.response.text();
-    return parsedMealSchema.parse(JSON.parse(jsonText));
+    const hasValidHint =
+      clientHint &&
+      !["Food plate photograph", "Plate photo capture", "none"].includes(clientHint.trim());
+    let prompt = hasValidHint
+      ? `Identify the food plate in this image and parse the items and portions into nutritional values. User hint: "${clientHint}"`
+      : `Identify all food items, dishes, sweets, or beverages in this image and parse into accurate nutritional values.`;
+    if (suggestedMealType) {
+      prompt += ` User selected meal slot: "${suggestedMealType}" (please use mealType: "${suggestedMealType}" unless visually certain it is another slot).`;
+    }
+
+    let lastError: unknown;
+    for (const modelName of this.candidateModels) {
+      try {
+        const model = this.client.getGenerativeModel({
+          model: modelName,
+          generationConfig: {
+            responseMimeType: "application/json",
+            temperature: 0.2,
+          },
+          systemInstruction,
+        });
+
+        const result = await model.generateContent([prompt, imagePart]);
+        const jsonText = result.response.text();
+        const fallbackMealType = (suggestedMealType as any) || "snack";
+        const parsed = normalizeParsedMealJson(jsonText, fallbackMealType);
+        console.log(`✅ Live Gemini Vision call succeeded with model ${modelName}`);
+        return parsed;
+      } catch (err) {
+        lastError = err;
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(`Gemini Vision model ${modelName} failed (${msg}), trying next candidate...`);
+      }
+    }
+
+    throw lastError;
   }
 
   async extractReportDocument(
@@ -283,8 +348,30 @@ Return JSON: { "text": string, "why": string, "tip": string }`;
   async chatStream(
     messages: Array<{ role: "user" | "assistant" | "system"; content: string }>,
     groundedContext: Record<string, unknown>,
-    onChunk: (delta: string) => void
+    onChunk: (delta: string) => void,
+    onToolCall?: (toolName: string, args: Record<string, unknown>) => Promise<Record<string, unknown>>
   ): Promise<string> {
+    const rawMsg = messages[messages.length - 1]?.content ?? "Hello";
+    const isQuestionOrInquiry =
+      /\?|\b(explain|how can|how to|what is|how do|why|suggest|recommend|tell me|routine swaps|food swaps|can you)\b/i.test(rawMsg);
+
+    const isMealLogIntent =
+      !isQuestionOrInquiry &&
+      (/\b(i had|i ate|\bate\b|\bdrank\b|i drank)\b/i.test(rawMsg) ||
+        /^log\b/i.test(rawMsg.trim()) ||
+        /\b(breakfast was|lunch was|dinner was|snack was)\b/i.test(rawMsg));
+
+    if (isMealLogIntent && onToolCall) {
+      const cleanText = rawMsg.replace(/^log\s*:?\s*/i, "");
+      const toolRes = await onToolCall("log_meal", { text: cleanText });
+      if ((toolRes as any)?.success) {
+        const summaryText = (toolRes as any)?.summary || "Meal successfully logged";
+        const reply = `I've logged that for you! ✨ ${summaryText}. Your daily calorie and protein rings on the Today screen have been updated.`;
+        onChunk(reply);
+        return reply;
+      }
+    }
+
     const systemInstruction = `You are an expert clinical nutritional assistant for the Hale Health app.
 Be empathetic, motivating, and concise (max 3 short paragraphs).
 You have access to the user's live profile, today's targets, consumed totals, and lab reports:
@@ -304,8 +391,7 @@ Indian Portions context:
       systemInstruction,
     });
 
-    const lastMsg = messages[messages.length - 1]?.content ?? "Hello";
-    const result = await model.generateContentStream(lastMsg);
+    const result = await model.generateContentStream(rawMsg);
     let fullText = "";
     for await (const chunk of result.stream) {
       const text = chunk.text();
@@ -315,4 +401,126 @@ Indian Portions context:
     return fullText;
   }
 }
+
+/**
+ * Normalizes and sanitizes JSON returned by LLM/Vision models to guarantee compliance
+ * with parsedMealSchema (filling missing macro keys, computing sums, and mapping synonyms).
+ */
+export function normalizeParsedMealJson(
+  rawInput: string | Record<string, unknown>,
+  defaultMealType: "breakfast" | "lunch" | "snack" | "dinner" = "snack"
+): ParsedMeal {
+  let obj: Record<string, any>;
+  if (typeof rawInput === "string") {
+    const cleaned = rawInput.replace(/```json\s*/gi, "").replace(/```\s*$/gi, "").trim();
+    obj = JSON.parse(cleaned);
+  } else {
+    obj = { ...rawInput };
+  }
+
+  // Meal Type validation
+  const validMealTypes = ["breakfast", "lunch", "snack", "dinner"];
+  if (!obj.mealType || !validMealTypes.includes(String(obj.mealType).toLowerCase())) {
+    obj.mealType = defaultMealType;
+  } else {
+    obj.mealType = String(obj.mealType).toLowerCase();
+  }
+
+  // Boolean flags
+  obj.isFood = obj.isFood !== false;
+  obj.isSkipped = Boolean(obj.isSkipped);
+
+  if (obj.clarifyingQuestion === null || obj.clarifyingQuestion === undefined) {
+    delete obj.clarifyingQuestion;
+  }
+  if (obj.impactSummary === null || obj.impactSummary === undefined) {
+    delete obj.impactSummary;
+  }
+
+  // Items normalization
+  const rawItems = Array.isArray(obj.items) ? obj.items : [];
+  const normalizedItems: Array<{
+    name: string;
+    quantity: number;
+    unit: string;
+    kcal: number;
+    proteinG: number;
+    carbsG: number;
+    fatG: number;
+    confidence: "high" | "medium" | "low";
+  }> = [];
+
+  for (const it of rawItems) {
+    if (!it || typeof it !== "object") continue;
+
+    const name = String(it.name || it.item || it.food || it.food_name || "Food Item").trim();
+    const rawQty = Number(it.quantity ?? it.qty ?? it.portion ?? it.count ?? 1);
+    const quantity = isNaN(rawQty) || rawQty <= 0 ? 1 : Math.round(rawQty * 10) / 10;
+    const unit = String(it.unit || it.serving_unit || "portion").trim();
+
+    // Calories: support kcal, calories, calorie, energy
+    const rawKcal = Number(it.kcal ?? it.calories ?? it.calorie ?? it.energy ?? 0);
+    const kcal = isNaN(rawKcal) || rawKcal < 0 ? 0 : Math.round(rawKcal);
+
+    // Protein: support proteinG, protein, protein_g
+    const rawProtein = Number(it.proteinG ?? it.protein ?? it.protein_g ?? 0);
+    const proteinG = isNaN(rawProtein) || rawProtein < 0 ? 0 : Math.round(rawProtein * 10) / 10;
+
+    // Carbs: support carbsG, carbs, carbohydrates, carbs_g
+    const rawCarbs = Number(it.carbsG ?? it.carbs ?? it.carbohydrates ?? it.carbs_g ?? 0);
+    const carbsG = isNaN(rawCarbs) || rawCarbs < 0 ? 0 : Math.round(rawCarbs * 10) / 10;
+
+    // Fat: support fatG, fat, fat_g, fats
+    const rawFat = Number(it.fatG ?? it.fat ?? it.fat_g ?? it.fats ?? 0);
+    const fatG = isNaN(rawFat) || rawFat < 0 ? 0 : Math.round(rawFat * 10) / 10;
+
+    const confidenceVal = String(it.confidence || "high").toLowerCase();
+    const confidence = ["high", "medium", "low"].includes(confidenceVal)
+      ? (confidenceVal as "high" | "medium" | "low")
+      : "high";
+
+    normalizedItems.push({
+      name,
+      quantity,
+      unit,
+      kcal,
+      proteinG,
+      carbsG,
+      fatG,
+      confidence,
+    });
+  }
+
+  obj.items = normalizedItems;
+
+  // Calculate totals
+  const sumKcal = normalizedItems.reduce((acc, i) => acc + i.kcal, 0);
+  const sumProtein = Math.round(normalizedItems.reduce((acc, i) => acc + i.proteinG, 0) * 10) / 10;
+  const sumCarbs = Math.round(normalizedItems.reduce((acc, i) => acc + i.carbsG, 0) * 10) / 10;
+  const sumFat = Math.round(normalizedItems.reduce((acc, i) => acc + i.fatG, 0) * 10) / 10;
+
+  const rawTotalKcal = Number(obj.totalKcal ?? obj.calories ?? sumKcal);
+  obj.totalKcal = isNaN(rawTotalKcal) || rawTotalKcal < 0 ? sumKcal : Math.round(rawTotalKcal);
+
+  const rawTotalProtein = Number(obj.proteinG ?? obj.protein ?? sumProtein);
+  obj.proteinG = isNaN(rawTotalProtein) || rawTotalProtein < 0 ? sumProtein : Math.round(rawTotalProtein * 10) / 10;
+
+  const rawTotalCarbs = Number(obj.carbsG ?? obj.carbs ?? sumCarbs);
+  obj.carbsG = isNaN(rawTotalCarbs) || rawTotalCarbs < 0 ? sumCarbs : Math.round(rawTotalCarbs * 10) / 10;
+
+  const rawTotalFat = Number(obj.fatG ?? obj.fat ?? sumFat);
+  obj.fatG = isNaN(rawTotalFat) || rawTotalFat < 0 ? sumFat : Math.round(rawTotalFat * 10) / 10;
+
+  const rootConfidence = String(obj.confidence || "high").toLowerCase();
+  obj.confidence = ["high", "medium", "low"].includes(rootConfidence)
+    ? rootConfidence
+    : "high";
+
+  if (!obj.impactSummary && obj.totalKcal > 0) {
+    obj.impactSummary = `+${obj.totalKcal} kcal logged. ${obj.proteinG}g protein added toward daily target.`;
+  }
+
+  return parsedMealSchema.parse(obj);
+}
+
 

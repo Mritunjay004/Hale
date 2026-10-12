@@ -84,9 +84,14 @@ export function errorHandler(
 
   // Zod validation errors
   if (error.name === "ZodError") {
+    const zodError = error as { issues?: Array<{ path: (string | number)[]; message: string }> };
+    const issueSummary = zodError.issues
+      ?.map((i) => `${i.path.length > 0 ? i.path.join(".") : "field"}: ${i.message}`)
+      .join(", ");
     void reply.status(400).send({
       code: "VALIDATION_ERROR",
-      message: "Invalid request data",
+      message: issueSummary ? `Invalid request data (${issueSummary})` : "Invalid request data",
+      details: zodError.issues,
       retryable: false,
     });
     return;

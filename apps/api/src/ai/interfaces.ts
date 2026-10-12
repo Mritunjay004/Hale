@@ -11,7 +11,7 @@ export interface SpeechToTextProvider {
  * Multimodal Vision & Image Parser Interface
  */
 export interface VisionProvider {
-  parseMealImage(imageBuffer: Buffer, mimeType: string, clientHint?: string): Promise<ParsedMeal>;
+  parseMealImage(imageBuffer: Buffer, mimeType: string, clientHint?: string, suggestedMealType?: string): Promise<ParsedMeal>;
   extractReportDocument(fileBuffer: Buffer, mimeType: string): Promise<ExtractedReportResponse>;
 }
 
@@ -19,7 +19,7 @@ export interface VisionProvider {
  * Text LLM Provider Interface
  */
 export interface LLMProvider {
-  parseMealText(text: string, context?: { timeOfDay?: string }): Promise<ParsedMeal>;
+  parseMealText(text: string, context?: { timeOfDay?: string | undefined; suggestedMealType?: string | undefined }): Promise<ParsedMeal>;
   phraseInsight(facts: Record<string, unknown>, candidateType: string): Promise<{ text: string; why: string; tip?: string }>;
   chatStream(
     messages: Array<{ role: "user" | "assistant" | "system"; content: string }>,

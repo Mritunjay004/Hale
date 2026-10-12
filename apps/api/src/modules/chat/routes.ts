@@ -12,7 +12,7 @@ import {
   reports,
   reportParameters,
 } from "../../infra/db/schema.js";
-import { eq, and, gte, lte, desc, asc } from "drizzle-orm";
+import { eq, and, gte, lte, desc } from "drizzle-orm";
 import { aiProvider } from "../../ai/factory.js";
 
 export async function chatRoutes(app: FastifyInstance): Promise<void> {
@@ -54,11 +54,17 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
       });
     }
 
+    const query = request.query as { limit?: string };
+    const limit = query.limit ? Math.min(parseInt(query.limit, 10), 100) : 50;
+
     const messages = await db
       .select()
       .from(chatMessages)
       .where(eq(chatMessages.threadId, threadId))
-      .orderBy(asc(chatMessages.createdAt));
+      .orderBy(desc(chatMessages.createdAt))
+      .limit(limit);
+
+    messages.reverse();
 
     return reply.status(200).send({
       threadId,
@@ -215,6 +221,16 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
         const text = String(args.text ?? body.content);
         try {
           const parsedMeal = await aiProvider.parseMealText(text);
+
+          // Guard: Never save a meal if input was not food or contains 0 items and is not skipped
+          if (!parsedMeal.isFood || (parsedMeal.items.length === 0 && !parsedMeal.isSkipped)) {
+            const res = {
+              success: false,
+              summary: parsedMeal.clarifyingQuestion ?? "Could not recognize food items in message",
+            };
+            return res;
+          }
+
           const mealId = crypto.randomUUID();
 
           await db.insert(meals).values({
@@ -352,6 +368,11 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
       },
       handleToolCall
     );
+
+    // If the client aborted/cancelled the request while thinking, exit gracefully
+    if (request.raw.destroyed || request.raw.closed) {
+      return;
+    }
 
     const assistantMsgId = crypto.randomUUID();
     await db.insert(chatMessages).values({

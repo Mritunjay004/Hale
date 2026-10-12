@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { planRequestSchema, type PlanResponse } from "@hale/shared";
+import { planRequestSchema, notificationPrefsSchema, type PlanResponse } from "@hale/shared";
 import { calculatePlan } from "../../domain/nutrition.js";
 import { authMiddleware } from "../../infra/auth.js";
 import { db } from "../../infra/db/connection.js";
@@ -104,6 +104,41 @@ export async function profileRoutes(app: FastifyInstance): Promise<void> {
     return reply.status(200).send({
       ...result[0],
       focusHabits: habits,
+    });
+  });
+
+  /**
+   * PATCH /v1/profile/notifications
+   * Update notification preferences.
+   */
+  app.patch("/profile/notifications", async (request, reply) => {
+    const userId = request.userId;
+    const body = notificationPrefsSchema.partial().parse(request.body);
+
+    const existing = await db
+      .select({ notificationPrefs: profiles.notificationPrefs })
+      .from(profiles)
+      .where(eq(profiles.userId, userId))
+      .limit(1);
+
+    if (existing.length === 0) {
+      throw new NotFoundError("Profile");
+    }
+
+    const currentPrefs = (existing[0]!.notificationPrefs as Record<string, unknown>) ?? {};
+    const updatedPrefs = { ...currentPrefs, ...body };
+
+    await db
+      .update(profiles)
+      .set({
+        notificationPrefs: updatedPrefs,
+        updatedAt: new Date(),
+      })
+      .where(eq(profiles.userId, userId));
+
+    return reply.status(200).send({
+      success: true,
+      notificationPrefs: updatedPrefs,
     });
   });
 }

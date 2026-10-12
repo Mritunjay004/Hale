@@ -25,10 +25,29 @@ export const colors = {
   },
   semantic: {
     success: "#2D6A4F",
+    successLight: "#EAF4EE",
     info: "#2563EB",
+    infoLight: "#EFF6FF",
     warn: "#D97706",
+    warnLight: "#FEF3C7",
     error: "#DC2626",
+    errorLight: "#FEE2E2",
   },
+} as const;
+
+export const motion = {
+  durations: {
+    instant: 80,
+    fast: 150,
+    normal: 200,
+    slow: 300,
+  },
+} as const;
+
+export const hitSlop = {
+  sm: { top: 6, bottom: 6, left: 6, right: 6 },
+  md: { top: 10, bottom: 10, left: 10, right: 10 },
+  lg: { top: 16, bottom: 16, left: 16, right: 16 },
 } as const;
 
 export const spacing = {

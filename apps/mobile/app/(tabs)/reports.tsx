@@ -19,6 +19,7 @@ import {
   ReportUploadSheet,
   ReportReviewContent,
   BiomarkerTrendCard,
+  ReportDetailSheet,
   type ReportItem,
 } from "../../src/features/reports";
 import { lightImpact } from "../../src/lib/haptics";
@@ -41,6 +42,7 @@ export default function ReportsScreen() {
   const [selectedBiomarkerKey, setSelectedBiomarkerKey] = useState("vitamin_d");
   const [uploadSheetVisible, setUploadSheetVisible] = useState(false);
   const [extractedReport, setExtractedReport] = useState<ExtractedReportResponse | null>(null);
+  const [selectedReport, setSelectedReport] = useState<ReportItem | null>(null);
 
   // 1. Fetch all reports
   const {
@@ -76,6 +78,14 @@ export default function ReportsScreen() {
 
   const handleReportSaved = () => {
     handleCloseUpload();
+    queryClient.invalidateQueries({ queryKey: ["reports"] });
+    queryClient.invalidateQueries({ queryKey: ["parameterTrend"] });
+    queryClient.invalidateQueries({ queryKey: ["today"] });
+  };
+
+  const handleDeleteReport = async (reportId: string) => {
+    await api.delete(`/reports/${reportId}`);
+    setSelectedReport(null);
     queryClient.invalidateQueries({ queryKey: ["reports"] });
     queryClient.invalidateQueries({ queryKey: ["parameterTrend"] });
     queryClient.invalidateQueries({ queryKey: ["today"] });
@@ -180,7 +190,14 @@ export default function ReportsScreen() {
           ) : reports && reports.length > 0 ? (
             <View style={styles.reportsList}>
               {reports.map((report) => (
-                <ReportCard key={report.id} report={report} />
+                <ReportCard
+                  key={report.id}
+                  report={report}
+                  onPress={() => {
+                    lightImpact();
+                    setSelectedReport(report);
+                  }}
+                />
               ))}
             </View>
           ) : (
@@ -199,6 +216,21 @@ export default function ReportsScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* Report Detail & Biomarkers ResponsiveSheet */}
+      <ResponsiveSheet
+        visible={!!selectedReport}
+        onClose={() => setSelectedReport(null)}
+        title={selectedReport?.label ?? "Diagnostic Report"}
+      >
+        {selectedReport && (
+          <ReportDetailSheet
+            report={selectedReport}
+            onClose={() => setSelectedReport(null)}
+            onDelete={handleDeleteReport}
+          />
+        )}
+      </ResponsiveSheet>
 
       {/* Upload & Review ResponsiveSheet */}
       <ResponsiveSheet

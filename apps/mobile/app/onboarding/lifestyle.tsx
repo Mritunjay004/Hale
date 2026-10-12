@@ -14,37 +14,37 @@ import { Card } from "../../src/ui/Card";
 import { OnboardingHeader } from "../../src/features/onboarding/OnboardingHeader";
 import { useOnboardingStore } from "../../src/features/onboarding/store";
 import { api } from "../../src/lib/api-client";
-import type { PlanResponse } from "@hale/shared";
+import type { ActivityLevel, DietPreference, PlanResponse } from "@hale/shared";
 
-const ACTIVITY_LEVELS = [
+const ACTIVITY_LEVELS: { level: ActivityLevel; title: string; desc: string }[] = [
   {
-    level: "sedentary" as const,
+    level: "sedentary",
     title: "Sedentary",
     desc: "Desk job, little intentional exercise",
   },
   {
-    level: "light" as const,
+    level: "lightly_active",
     title: "Lightly Active",
     desc: "1-3 light workout sessions / brisk walks a week",
   },
   {
-    level: "moderate" as const,
+    level: "moderately_active",
     title: "Moderately Active",
     desc: "3-5 moderate workouts / gym / running sessions",
   },
   {
-    level: "heavy" as const,
+    level: "very_active",
     title: "Very Active",
     desc: "Daily intense training, physical labor, or competitive sport",
   },
 ];
 
-const DIET_PREFERENCES = [
-  { pref: "none" as const, label: "Anything" },
-  { pref: "veg" as const, label: "Vegetarian" },
-  { pref: "non_veg" as const, label: "Non-Veg" },
-  { pref: "eggetarian" as const, label: "Eggetarian" },
-  { pref: "vegan" as const, label: "Vegan" },
+const DIET_PREFERENCES: { pref: DietPreference; label: string }[] = [
+  { pref: "none", label: "Anything" },
+  { pref: "vegetarian", label: "Vegetarian" },
+  { pref: "non_vegetarian", label: "Non-Veg" },
+  { pref: "eggetarian", label: "Eggetarian" },
+  { pref: "vegan", label: "Vegan" },
 ];
 
 const COMMON_TAGS = [
@@ -60,8 +60,8 @@ export default function LifestyleScreen() {
   const router = useRouter();
   const store = useOnboardingStore();
 
-  const [activity, setActivity] = useState(store.activityLevel);
-  const [diet, setDiet] = useState(store.dietPreference);
+  const [activity, setActivity] = useState<ActivityLevel>(store.activityLevel);
+  const [diet, setDiet] = useState<DietPreference>(store.dietPreference);
   const [tags, setTags] = useState<string[]>(store.notesTags);
   const [loading, setLoading] = useState(false);
 
@@ -90,7 +90,7 @@ export default function LifestyleScreen() {
         dietPreference: diet,
         goalType: store.goalType,
         targetWeightKg: store.targetWeightKg,
-        timeframeWeeks: store.timeframeWeeks,
+        targetWeeks: store.targetWeeks,
         notesTags: tags,
       });
 

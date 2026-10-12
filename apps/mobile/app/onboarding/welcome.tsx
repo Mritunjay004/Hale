@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { colors, spacing, radius, typography } from "../../src/theme/tokens";
 import { Button } from "../../src/ui/Button";
+import { HaleLogo } from "../../src/ui/HaleLogo";
 import { api } from "../../src/lib/api-client";
 
 export default function WelcomeScreen() {
@@ -21,7 +22,7 @@ export default function WelcomeScreen() {
     <View style={styles.container}>
       <View style={styles.hero}>
         <View style={styles.logoBadge}>
-          <Text style={styles.logoEmoji}>🌿</Text>
+          <HaleLogo size={56} backgroundColor="transparent" />
         </View>
 
         <Text style={styles.brandTitle}>Hale</Text>

@@ -17,6 +17,7 @@ import { Button } from "../../ui/Button";
 import { Card } from "../../ui/Card";
 import { api } from "../../lib/api-client";
 import { lightImpact, mediumImpact, successNotification } from "../../lib/haptics";
+import { useMealCaptureStore } from "./useMealCaptureStore";
 import type { ParsedMeal, MealSource } from "@hale/shared";
 
 interface CaptureSheetProps {
@@ -33,6 +34,7 @@ const FREQUENT_MEALS = [
 ];
 
 export function MealCaptureContent({ onParsed, onClose }: CaptureSheetProps) {
+  const suggestedMealType = useMealCaptureStore((s) => s.suggestedMealType);
   const [mode, setMode] = useState<"voice" | "camera" | "text">("voice");
   const [textInput, setTextInput] = useState("");
   const [isRecording, setIsRecording] = useState(false);
@@ -63,6 +65,7 @@ export function MealCaptureContent({ onParsed, onClose }: CaptureSheetProps) {
     try {
       const parsed = await api.post<ParsedMeal>("/meals/parse", {
         text: query,
+        mealType: suggestedMealType as any,
         clientTimestamp: new Date().toISOString(),
       });
 
@@ -154,6 +157,10 @@ export function MealCaptureContent({ onParsed, onClose }: CaptureSheetProps) {
         } as unknown as Blob);
       }
 
+      if (suggestedMealType) {
+        formData.append("suggestedMealType", suggestedMealType);
+      }
+
       const result = await api.uploadFormData<{
         transcription: string;
         meal: ParsedMeal;
@@ -225,20 +232,25 @@ export function MealCaptureContent({ onParsed, onClose }: CaptureSheetProps) {
           } as unknown as Blob);
         }
 
+        if (suggestedMealType) {
+          formData.append("suggestedMealType", suggestedMealType);
+        }
+
         const parsed = await api.uploadFormData<ParsedMeal>("/meals/parse-image", formData);
 
-        if (!parsed.isFood) {
+        if (!parsed.isFood || !parsed.items || parsed.items.length === 0) {
           Alert.alert(
-            "Food Not Detected",
-            parsed.clarifyingQuestion ?? "That doesn't look like food. Please try taking another photo."
+            "Unable to Identify Food",
+            parsed.clarifyingQuestion ??
+              "We couldn't clearly identify the items in this photo. Please describe what you ate or snap another photo with better lighting."
           );
           return;
         }
 
         onParsed(parsed, "camera", "Plate photo capture");
       } catch (err) {
-        console.error(err);
-        Alert.alert("Photo Error", "Could not analyze photo. Try quick text entry.");
+        console.error("Photo analysis error:", err);
+        Alert.alert("Photo Error", "Could not analyze photo. Please describe your meal using text or voice.");
       } finally {
         setAnalyzing(false);
       }

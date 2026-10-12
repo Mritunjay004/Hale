@@ -2,6 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { colors, typography, spacing, radius } from "../../theme/tokens";
 import { Card } from "../../ui/Card";
+import { IconArrowRight } from "../../ui/icons";
 import type { NextBestAction } from "@hale/shared";
 
 interface NextBestActionCardProps {
@@ -27,7 +28,6 @@ export function NextBestActionCard({ action, onPressAction }: NextBestActionCard
             {priorityLabel}
           </Text>
         </View>
-        <Text style={styles.sparkleIcon}>{isComplete ? "🎉" : "⚡"}</Text>
       </View>
 
       <Text style={styles.title}>{action.title}</Text>
@@ -37,15 +37,22 @@ export function NextBestActionCard({ action, onPressAction }: NextBestActionCard
         style={({ pressed }) => [
           styles.actionBtn,
           isComplete && styles.completeBtn,
-          pressed && { opacity: 0.88 },
+          pressed && styles.actionBtnPressed,
         ]}
         onPress={onPressAction}
         accessibilityRole="button"
         accessibilityLabel={action.ctaText}
       >
         <Text style={[styles.actionBtnText, isComplete && styles.completeBtnText]}>
-          {action.ctaText} →
+          {action.ctaText}
         </Text>
+        <View style={styles.arrowWrapper}>
+          <IconArrowRight
+            size={16}
+            color={isComplete ? colors.text.inverse : colors.brand.primary}
+            strokeWidth={2.4}
+          />
+        </View>
       </Pressable>
     </Card>
   );
@@ -67,13 +74,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   priorityPill: {
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    backgroundColor: "rgba(255, 255, 255, 0.16)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.25)",
     paddingHorizontal: spacing.xs,
     paddingVertical: 3,
     borderRadius: radius.sm,
   },
   completePill: {
-    backgroundColor: "rgba(82, 183, 136, 0.3)",
+    backgroundColor: "rgba(82, 183, 136, 0.25)",
+    borderColor: "rgba(82, 183, 136, 0.4)",
   },
   priorityText: {
     ...typography.badge,
@@ -82,9 +92,6 @@ const styles = StyleSheet.create({
   },
   completePriorityText: {
     color: "#D8F3DC",
-  },
-  sparkleIcon: {
-    fontSize: 16,
   },
   title: {
     ...typography.h3,
@@ -97,15 +104,30 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   actionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.xs,
+    minHeight: 46,
     backgroundColor: colors.bg.surface,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: radius.md,
-    alignItems: "center",
     marginTop: spacing.xs,
+  },
+  actionBtnPressed: {
+    transform: [{ scale: 0.98 }],
+    opacity: 0.92,
+  },
+  arrowWrapper: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 2,
   },
   completeBtn: {
     backgroundColor: "rgba(255, 255, 255, 0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
   },
   actionBtnText: {
     ...typography.bodyMedium,

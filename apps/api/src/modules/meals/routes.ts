@@ -19,7 +19,10 @@ export async function mealRoutes(app: FastifyInstance): Promise<void> {
     const body = parseMealRequestSchema.parse(request.body);
     const parsed = await aiProvider.parseMealText(
       body.text ?? "",
-      body.clientTimestamp ? { timeOfDay: body.clientTimestamp } : undefined
+      {
+        timeOfDay: body.clientTimestamp,
+        suggestedMealType: body.mealType,
+      }
     );
     return reply.status(200).send(parsed);
   });
@@ -41,13 +44,24 @@ export async function mealRoutes(app: FastifyInstance): Promise<void> {
     const audioBuffer = await data.toBuffer();
     const mimeType = data.mimetype || "audio/m4a";
 
+    const mealTypeField = data.fields?.["mealType"] || data.fields?.["suggestedMealType"];
+    const suggestedMealType =
+      mealTypeField && typeof mealTypeField === "object" && "value" in mealTypeField
+        ? String((mealTypeField as { value: unknown }).value)
+        : typeof mealTypeField === "string"
+          ? mealTypeField
+          : undefined;
+
     // 1. Transcribe speech to text
     const transcribedText = await aiProvider.transcribeAudio(audioBuffer, mimeType);
 
     // 2. Parse transcribed text into nutritional meal breakdown
     const parsed = await aiProvider.parseMealText(
       transcribedText,
-      { timeOfDay: new Date().toISOString() }
+      {
+        timeOfDay: new Date().toISOString(),
+        suggestedMealType,
+      }
     );
 
     return reply.status(200).send({
@@ -73,10 +87,27 @@ export async function mealRoutes(app: FastifyInstance): Promise<void> {
     const imageBuffer = await data.toBuffer();
     const mimeType = data.mimetype || "image/jpeg";
 
+    const hintField = data.fields?.["hint"];
+    const hint =
+      hintField && typeof hintField === "object" && "value" in hintField
+        ? String((hintField as { value: unknown }).value)
+        : typeof hintField === "string"
+          ? hintField
+          : undefined;
+
+    const mealTypeField = data.fields?.["mealType"] || data.fields?.["suggestedMealType"];
+    const suggestedMealType =
+      mealTypeField && typeof mealTypeField === "object" && "value" in mealTypeField
+        ? String((mealTypeField as { value: unknown }).value)
+        : typeof mealTypeField === "string"
+          ? mealTypeField
+          : undefined;
+
     const parsed = await aiProvider.parseMealImage(
       imageBuffer,
       mimeType,
-      "Food plate photograph"
+      hint,
+      suggestedMealType
     );
 
     return reply.status(200).send(parsed);
@@ -147,6 +178,18 @@ export async function mealRoutes(app: FastifyInstance): Promise<void> {
 
     const dayStart = new Date(`${targetDate}T00:00:00.000Z`);
     const dayEnd = new Date(`${targetDate}T23:59:59.999Z`);
+
+    // Auto-clean any corrupt phantom chat meals (0 kcal, non-skipped chat inputs)
+    await db
+      .delete(meals)
+      .where(
+        and(
+          eq(meals.userId, userId),
+          eq(meals.source, "chat"),
+          eq(meals.totalKcal, 0),
+          eq(meals.isSkipped, false)
+        )
+      );
 
     const result = await db
       .select()

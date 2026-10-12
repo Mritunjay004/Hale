@@ -1,5 +1,11 @@
 import { create } from "zustand";
-import type { PlanRequestInput, PlanResponse } from "@hale/shared";
+import type {
+  GoalType,
+  ActivityLevel,
+  DietPreference,
+  Sex,
+  PlanResponse,
+} from "@hale/shared";
 
 export interface OnboardingState {
   // Step tracker
@@ -7,17 +13,17 @@ export interface OnboardingState {
   
   // Form values
   age: number;
-  sex: "male" | "female";
+  sex: Sex;
   heightCm: number;
   weightKg: number;
   useImperial: boolean; // toggle for UI display
   
-  goalType: "fat_loss" | "maintain" | "muscle" | "health";
+  goalType: GoalType;
   targetWeightKg?: number;
-  timeframeWeeks?: number;
+  targetWeeks?: number;
   
-  activityLevel: "sedentary" | "light" | "moderate" | "heavy";
-  dietPreference: "veg" | "non_veg" | "vegan" | "eggetarian" | "none";
+  activityLevel: ActivityLevel;
+  dietPreference: DietPreference;
   notesTags: string[];
   
   // Computed Plan & Pushback
@@ -36,16 +42,16 @@ export interface OnboardingState {
 const initialState = {
   step: 1,
   age: 28,
-  sex: "male" as const,
+  sex: "male" as Sex,
   heightCm: 175,
   weightKg: 75,
   useImperial: false,
-  goalType: "fat_loss" as const,
+  goalType: "fat_loss" as GoalType,
   targetWeightKg: 70,
-  timeframeWeeks: 12,
-  activityLevel: "light" as const,
-  dietPreference: "none" as const,
-  notesTags: [],
+  targetWeeks: 12,
+  activityLevel: "lightly_active" as ActivityLevel,
+  dietPreference: "none" as DietPreference,
+  notesTags: [] as string[],
   calculatedPlan: null,
   acceptedPushbackDate: null,
   isLoadingPlan: false,

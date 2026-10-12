@@ -1,7 +1,10 @@
 import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Svg, { Path } from "react-native-svg";
 import { colors, spacing, radius, typography } from "../../theme/tokens";
+import { lightImpact } from "../../lib/haptics";
 
 interface OnboardingHeaderProps {
   currentStep: number;
@@ -21,20 +24,35 @@ export function OnboardingHeader({
   subtitle,
 }: OnboardingHeaderProps) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+
+  const handleBackPress = () => {
+    lightImpact();
+    if (onBack) onBack();
+    else router.back();
+  };
 
   return (
-    <View style={styles.header}>
+    <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) }]}>
       {/* Top row: Back button and Step indicator */}
       <View style={styles.topRow}>
         {canGoBack ? (
           <Pressable
-            onPress={onBack ? onBack : () => router.back()}
+            onPress={handleBackPress}
             hitSlop={12}
             accessibilityRole="button"
             accessibilityLabel="Go back"
-            style={styles.backButton}
+            style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
           >
-            <Text style={styles.backArrow}>←</Text>
+            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M19 12H5M5 12L12 19M5 12L12 5"
+                stroke={colors.text.primary}
+                strokeWidth={2.2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
           </Pressable>
         ) : (
           <View style={styles.backButtonPlaceholder} />
@@ -87,14 +105,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border.subtle,
   },
+  backButtonPressed: {
+    backgroundColor: colors.bg.subtle,
+    transform: [{ scale: 0.95 }],
+  },
   backButtonPlaceholder: {
     width: 40,
     height: 40,
-  },
-  backArrow: {
-    fontSize: 20,
-    color: colors.text.primary,
-    fontWeight: "600",
   },
   stepBadge: {
     paddingHorizontal: spacing.sm,

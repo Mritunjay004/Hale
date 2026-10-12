@@ -14,7 +14,10 @@ export class FakeAIProvider implements SpeechToTextProvider, VisionProvider, LLM
     return "two rotis, yellow dal, and a bowl of curd";
   }
 
-  async parseMealText(text: string, _context?: { timeOfDay?: string }): Promise<ParsedMeal> {
+  async parseMealText(
+    text: string,
+    _context?: { timeOfDay?: string | undefined; suggestedMealType?: string | undefined }
+  ): Promise<ParsedMeal> {
     const lower = text.toLowerCase();
 
     // 1. Skipped meal detection
@@ -39,7 +42,9 @@ export class FakeAIProvider implements SpeechToTextProvider, VisionProvider, LLM
       lower.includes("car key") ||
       lower.includes("laptop") ||
       lower.includes("phone") ||
-      lower.includes("wallet")
+      lower.includes("wallet") ||
+      lower.includes("?") ||
+      /^(coach|can you|how can|what is|how do|why|explain|suggest|recommend|tell me|routine swaps|food swaps)\b/i.test(text.trim())
     ) {
       return {
         mealType: "lunch",
@@ -51,7 +56,7 @@ export class FakeAIProvider implements SpeechToTextProvider, VisionProvider, LLM
         confidence: "low",
         isFood: false,
         isSkipped: false,
-        clarifyingQuestion: "That doesn't appear to be food. Could you describe your meal?",
+        clarifyingQuestion: "That sounds like a question or non-food input rather than a meal log. How can I help you?",
       };
     }
 
@@ -202,6 +207,22 @@ export class FakeAIProvider implements SpeechToTextProvider, VisionProvider, LLM
       });
     }
 
+    // Sweets & Desserts: Kaju Katli, Gulab Jamun, Barfi, Laddu
+    if (lower.includes("kaju") || lower.includes("katli") || lower.includes("mithai") || lower.includes("sweet")) {
+      const match = lower.match(/(\d+)\s*(?:piece|pc|kaju|katli)/);
+      const count = match && match[1] ? parseInt(match[1], 10) : 3;
+      items.push({
+        name: "Kaju Katli (Cashew Fudge)",
+        quantity: count,
+        unit: count === 1 ? "piece" : "pieces",
+        kcal: count * 55,
+        proteinG: count * 1.2,
+        carbsG: count * 8,
+        fatG: count * 2.5,
+        confidence: "high",
+      });
+    }
+
     // Fallback if no specific keyword matched: parse as balanced meal based on user's exact input
     if (items.length === 0) {
       items.push({
@@ -228,7 +249,7 @@ export class FakeAIProvider implements SpeechToTextProvider, VisionProvider, LLM
       mealType = "breakfast";
     } else if (lower.includes("dinner") || lower.includes("night")) {
       mealType = "dinner";
-    } else if (lower.includes("snack") || lower.includes("tea") || lower.includes("coffee")) {
+    } else if (lower.includes("snack") || lower.includes("tea") || lower.includes("coffee") || lower.includes("kaju") || lower.includes("sweet")) {
       mealType = "snack";
     }
 
@@ -249,9 +270,30 @@ export class FakeAIProvider implements SpeechToTextProvider, VisionProvider, LLM
   async parseMealImage(
     _imageBuffer: Buffer,
     _mimeType: string,
-    clientHint?: string
+    clientHint?: string,
+    suggestedMealType?: string
   ): Promise<ParsedMeal> {
-    return this.parseMealText(clientHint || "two rotis, yellow dal, and curd");
+    const isGeneric =
+      !clientHint ||
+      ["Food plate photograph", "Plate photo capture", "none"].includes(clientHint.trim());
+
+    if (!isGeneric) {
+      return this.parseMealText(clientHint!, { suggestedMealType });
+    }
+
+    return {
+      mealType: "snack",
+      items: [],
+      totalKcal: 0,
+      proteinG: 0,
+      carbsG: 0,
+      fatG: 0,
+      confidence: "low",
+      isFood: false,
+      isSkipped: false,
+      clarifyingQuestion:
+        "Could not detect food items in this image. Please describe your meal or try taking another photo.",
+    };
   }
 
   async extractReportDocument(
@@ -371,19 +413,88 @@ export class FakeAIProvider implements SpeechToTextProvider, VisionProvider, LLM
       return response;
     }
 
-    // 3. Tool: Log Meal
+    const rawMsg = messages[messages.length - 1]?.content ?? "";
+    const isQuestionOrInquiry =
+      /\?|\b(explain|how can|how to|what is|how do|why|suggest|recommend|tell me|routine swaps|food swaps|can you)\b/i.test(rawMsg);
+
+    // Habit Coaching & Lab Inquiries: Refined Carbs & Saturated Fats
     if (
-      (lastMsg.includes("had") ||
-        lastMsg.includes("ate") ||
-        lastMsg.includes("log") ||
-        lastMsg.includes("drank") ||
-        lastMsg.includes("breakfast was") ||
-        lastMsg.includes("lunch was") ||
-        lastMsg.includes("dinner was")) &&
-      onToolCall
+      lastMsg.includes("refined carbohydrate") ||
+      lastMsg.includes("saturated fat") ||
+      lastMsg.includes("reduce refined") ||
+      (lastMsg.includes("carbohydrate") && isQuestionOrInquiry) ||
+      (lastMsg.includes("fat") && isQuestionOrInquiry)
     ) {
-      const cleanText = lastMsg.replace(/^log\s*:?\s*/i, "");
+      const response =
+        "Here are practical, high-impact swaps based on your lab report and metabolic goals:\n\n" +
+        "1. **Refined Carbs Swaps**:\n" +
+        "• Replace white rice or maida with whole grains (millets like jowar/bajra, quinoa, or whole-wheat rotis with multigrain bran).\n" +
+        "• Swap packaged biscuits, namkeen, or chai sweets with roasted chana, makhana (fox nuts), or a handful of raw almonds & walnuts.\n\n" +
+        "2. **Saturated Fat Swaps**:\n" +
+        "• Minimize deep-fried foods, heavy vanaspati, and excessive butter. Use cold-pressed mustard oil, olive oil, or moderate ghee.\n" +
+        "• Choose lean proteins like grilled chicken breast, fish, tofu, or low-fat paneer over high-fat processed meats or cream-laden gravies.\n\n" +
+        "3. **Routine Habit**:\n" +
+        "• Start meals with raw salad or sautéed vegetables (soluble fiber) before carbs to blunt the post-prandial glucose and lipid surge.";
+      onChunk(response);
+      return response;
+    }
+
+    // Fiber Guidance
+    if (lastMsg.includes("fiber") || lastMsg.includes("fibre")) {
+      const response =
+        "Fiber is essential for metabolic longevity, satiety, and lipid control:\n\n" +
+        "• **Daily Target**: Aim for 25–30g of total dietary fiber per day (most urban diets average only 10–12g).\n" +
+        "• **Soluble Fiber Superstars**: Oats, chia seeds, psyllium husk (isabgol), and legumes. Soluble fiber forms a viscous gel that traps excess LDL cholesterol and flattens glucose spikes.\n" +
+        "• **Easy Meal Swap**: Always start lunch and dinner with a katori of raw salad (cucumber, carrot, radish) or sautéed leafy greens before eating your carbs.";
+      onChunk(response);
+      return response;
+    }
+
+    // Steps & Calorie Burn Guidance
+    if (lastMsg.includes("step") || (lastMsg.includes("burn") && lastMsg.includes("calorie"))) {
+      const response =
+        "Here is the clinical breakdown on steps and daily energy expenditure:\n\n" +
+        "• **Calorie Burn Metric**: On average, 1,000 brisk steps burns ~35–40 kcal. A 5,000-step walk burns ~180–200 kcal, and 10,000 steps burns ~350–400 kcal.\n" +
+        "• **Post-Meal Glucose Walks**: Rather than trying to 'burn off' meals afterward, the most powerful habit is a 15-minute walk (~2,000 steps) within 30 minutes of finishing a meal. This activates leg muscle GLUT4 transporters without insulin, blunting blood sugar spikes by up to 30%!\n" +
+        "• **Sustainable Buffer**: Use steps as a gentle buffer to keep daily energy balance positive, not as compensation or punishment.";
+      onChunk(response);
+      return response;
+    }
+
+    // Liver Health / Enzymes: ALT (SGPT) & AST (SGOT)
+    if (
+      lastMsg.includes("alt") ||
+      lastMsg.includes("sgpt") ||
+      lastMsg.includes("ast") ||
+      lastMsg.includes("sgot") ||
+      lastMsg.includes("liver")
+    ) {
+      const response =
+        "ALT (SGPT) and AST (SGOT) are key intracellular liver enzymes that indicate hepatic cell integrity. Elevated levels typically reflect metabolic strain, visceral fat accumulation, or strenuous tissue turnover.\n\n" +
+        "• **Hydration & Alcohol**: Ensure at least 2.5–3L of clean water daily and strictly pause alcohol consumption.\n" +
+        "• **Cruciferous Greens**: Incorporate broccoli, cabbage, and spinach, which support natural glutathione detoxification pathways.\n" +
+        "• **Aerobic Consistency**: 30 minutes of brisk daily walking significantly reduces liver fat and helps normalize AST/ALT within 6–8 weeks.";
+      onChunk(response);
+      return response;
+    }
+
+    // 3. Tool: Log Meal (strictly word-bounded and NOT an informational question)
+    const isMealLogIntent =
+      !isQuestionOrInquiry &&
+      (/\b(i had|i ate|\bate\b|\bdrank\b|i drank)\b/i.test(rawMsg) ||
+        /^log\b/i.test(rawMsg.trim()) ||
+        /\b(breakfast was|lunch was|dinner was|snack was)\b/i.test(rawMsg));
+
+    if (isMealLogIntent && onToolCall) {
+      const cleanText = rawMsg.replace(/^log\s*:?\s*/i, "");
       const toolRes = await onToolCall("log_meal", { text: cleanText });
+      if ((toolRes as any)?.success === false) {
+        const response =
+          (toolRes as any)?.summary ||
+          "I couldn't identify specific food items to log. Could you tell me what you had and the portion size?";
+        onChunk(response);
+        return response;
+      }
       const summaryText = (toolRes as any)?.summary || "Meal successfully logged";
       const response = `I've logged that for you! ✨ ${summaryText}. Your daily calorie and protein rings on the Today screen have been updated.`;
       onChunk(response);
