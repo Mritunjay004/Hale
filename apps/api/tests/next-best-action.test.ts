@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeNextBestAction } from "../src/modules/today/routes.js";
+import { computeNextBestAction } from "../src/domain/next-best-action.js";
 
 describe("computeNextBestAction", () => {
   it("never suggests 'Log Dinner' if dinner is already logged; prompts missing lunch first", () => {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { notificationPrefsSchema } from "@hale/shared";
-import { computeNextBestAction } from "../src/modules/today/routes.js";
+import { computeNextBestAction } from "../src/domain/next-best-action.js";
 
 describe("Notification Preferences Schema", () => {
   it("applies sensible defaults when empty object is passed", () => {

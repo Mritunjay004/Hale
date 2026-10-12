@@ -4,7 +4,10 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const envSchema = z.object({
-  DATABASE_URL: z.string().url(),
+  DATABASE_URL: z
+    .string()
+    .url()
+    .default("postgresql://postgres:postgres@localhost:5432/hale_dev"),
   PORT: z.coerce.number().default(3001),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   CORS_ORIGIN: z.string().default("http://localhost:8081"),
@@ -19,8 +22,12 @@ const parsed = envSchema.safeParse(process.env);
 
 if (!parsed.success) {
   console.error("❌ Invalid environment variables:", parsed.error.flatten().fieldErrors);
-  process.exit(1);
+  if (process.env.NODE_ENV !== "test") {
+    process.exit(1);
+  }
 }
 
-export const config = parsed.data;
 export type Config = z.infer<typeof envSchema>;
+export const config: Config = parsed.success
+  ? parsed.data
+  : envSchema.parse({});
