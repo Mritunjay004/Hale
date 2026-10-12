@@ -22,6 +22,16 @@ const API_BASE_URL = getBaseUrl();
 
 const SESSION_TOKEN_KEY = "hale_session_token";
 const DEVICE_SECRET_KEY = "hale_device_secret";
+export const ONBOARDED_KEY = "hale_onboarded";
+
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
 
 class ApiClient {
   private token: string | null = null;
@@ -107,7 +117,7 @@ class ApiClient {
       } catch {
         // Fallback to status text
       }
-      throw new Error(errMessage);
+      throw new ApiError(errMessage, response.status);
     }
 
     return (await response.json()) as T;
@@ -148,6 +158,7 @@ class ApiClient {
   async resetSession(): Promise<void> {
     await deleteSecureItem(SESSION_TOKEN_KEY);
     await deleteSecureItem(DEVICE_SECRET_KEY);
+    await deleteSecureItem(ONBOARDED_KEY);
     this.token = null;
   }
 }

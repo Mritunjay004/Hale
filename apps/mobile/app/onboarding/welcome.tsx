@@ -4,7 +4,8 @@ import { useRouter } from "expo-router";
 import { colors, spacing, radius, typography } from "../../src/theme/tokens";
 import { Button } from "../../src/ui/Button";
 import { HaleLogo } from "../../src/ui/HaleLogo";
-import { api } from "../../src/lib/api-client";
+import { api, ONBOARDED_KEY } from "../../src/lib/api-client";
+import { setSecureItem } from "../../src/lib/secure-storage";
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -12,8 +13,10 @@ export default function WelcomeScreen() {
   const handleSeedDemo = async () => {
     try {
       await api.post("/dev/seed-demo");
+      await setSecureItem(ONBOARDED_KEY, "true");
       router.replace("/(tabs)");
     } catch {
+      await setSecureItem(ONBOARDED_KEY, "true");
       router.replace("/(tabs)");
     }
   };

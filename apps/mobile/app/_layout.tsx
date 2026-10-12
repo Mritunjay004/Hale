@@ -11,7 +11,18 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5, // 5 minutes
-      retry: 2,
+      retry: (failureCount, error: any) => {
+        // Do not retry 404 (un-onboarded profile) or not found errors
+        if (
+          error?.status === 404 ||
+          error?.message?.includes("404") ||
+          error?.message?.includes("not found") ||
+          error?.message?.includes("onboarding")
+        ) {
+          return false;
+        }
+        return failureCount < 1;
+      },
     },
   },
 });

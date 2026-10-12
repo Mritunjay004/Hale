@@ -7,6 +7,7 @@ import {
   RefreshControl,
   Pressable,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../src/lib/api-client";
@@ -30,6 +31,8 @@ import { syncMealReminders } from "../../src/lib/notifications";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useMealCaptureStore } from "../../src/features/food-log/useMealCaptureStore";
+import { ONBOARDED_KEY } from "../../src/lib/api-client";
+import { setSecureItem, deleteSecureItem } from "../../src/lib/secure-storage";
 import type { TodayResponse } from "@hale/shared";
 
 export default function TodayScreen() {
@@ -41,6 +44,7 @@ export default function TodayScreen() {
   const [summaryModalVisible, setSummaryModalVisible] = useState(false);
   const [remindersModalVisible, setRemindersModalVisible] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [isSeeding, setIsSeeding] = useState(false);
 
   const { data, isLoading, isRefetching, error, refetch } = useQuery<TodayResponse>({
     queryKey: ["today"],
@@ -75,6 +79,7 @@ export default function TodayScreen() {
               // Even if dev route is disabled on server, reset local device session
               await api.resetSession();
             } finally {
+              await deleteSecureItem(ONBOARDED_KEY);
               queryClient.clear();
               setIsResetting(false);
               router.replace("/onboarding/welcome");
@@ -98,7 +103,11 @@ export default function TodayScreen() {
           <Skeleton width={180} height={32} />
           <Skeleton width={88} height={28} borderRadius={radius.full} />
         </View>
-        <Skeleton width="100%" height={120} borderRadius={radius.lg} style={{ marginTop: spacing.md }} />
+        <View style={styles.syncingBanner}>
+          <ActivityIndicator size="small" color={colors.brand.primary} />
+          <Text style={styles.syncingText}>Syncing daily nutrition & targets...</Text>
+        </View>
+        <Skeleton width="100%" height={120} borderRadius={radius.lg} style={{ marginTop: spacing.xs }} />
         <Skeleton width="100%" height={180} borderRadius={radius.lg} style={{ marginTop: spacing.md }} />
         <Skeleton width="100%" height={140} borderRadius={radius.lg} style={{ marginTop: spacing.md }} />
       </View>
@@ -124,27 +133,25 @@ export default function TodayScreen() {
           style={{ marginTop: spacing.lg, width: "100%", maxWidth: 280 }}
         />
 
-        {/* 
-          // REVIEWER DEMO SEEDING (Disabled for real users)
-          <Button
-            label={isSeeding ? "Seeding Demo Data..." : "Try With Sample Data"}
-            loading={isSeeding}
-            disabled={isSeeding}
-            variant="outline"
-            onPress={async () => {
-              setIsSeeding(true);
-              try {
-                await api.post("/dev/seed-demo");
-                await refetch();
-              } catch (err) {
-                console.error("Failed to seed demo data:", err);
-              } finally {
-                setIsSeeding(false);
-              }
-            }}
-            style={{ marginTop: spacing.sm, width: "100%", maxWidth: 280 }}
-          />
-        */}
+        <Button
+          label={isSeeding ? "Seeding Demo Data..." : "Try With Sample Data"}
+          loading={isSeeding}
+          disabled={isSeeding}
+          variant="outline"
+          onPress={async () => {
+            setIsSeeding(true);
+            try {
+              await api.post("/dev/seed-demo");
+              await setSecureItem(ONBOARDED_KEY, "true");
+              await refetch();
+            } catch (err) {
+              console.error("Failed to seed demo data:", err);
+            } finally {
+              setIsSeeding(false);
+            }
+          }}
+          style={{ marginTop: spacing.sm, width: "100%", maxWidth: 280 }}
+        />
       </View>
     );
   }
@@ -329,6 +336,21 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginTop: spacing.md,
+  },
+  syncingBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    backgroundColor: colors.brand.primaryLight,
+    borderRadius: radius.md,
+    marginTop: spacing.xs,
+  },
+  syncingText: {
+    ...typography.caption,
+    color: colors.brand.primary,
+    fontWeight: "600",
   },
   dateLabel: {
     ...typography.badge,

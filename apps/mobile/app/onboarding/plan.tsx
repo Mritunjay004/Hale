@@ -12,7 +12,8 @@ import { Button } from "../../src/ui/Button";
 import { Card } from "../../src/ui/Card";
 import { OnboardingHeader } from "../../src/features/onboarding/OnboardingHeader";
 import { useOnboardingStore } from "../../src/features/onboarding/store";
-import { api } from "../../src/lib/api-client";
+import { api, ONBOARDED_KEY } from "../../src/lib/api-client";
+import { setSecureItem } from "../../src/lib/secure-storage";
 import type { PlanResponse } from "@hale/shared";
 
 function formatFriendlyDate(dateStr?: string | null): string {
@@ -94,9 +95,11 @@ export default function PlanPayoffScreen() {
         notesTags: store.notesTags,
       });
 
+      await setSecureItem(ONBOARDED_KEY, "true");
       router.replace("/(tabs)");
     } catch (err) {
       console.error(err);
+      await setSecureItem(ONBOARDED_KEY, "true");
       router.replace("/(tabs)");
     } finally {
       setSaving(false);
