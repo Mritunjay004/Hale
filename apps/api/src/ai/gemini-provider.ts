@@ -16,13 +16,13 @@ export class GeminiAIProvider implements LLMProvider, VisionProvider {
 
   constructor(apiKey: string, modelName?: string) {
     this.client = new GoogleGenerativeAI(apiKey);
-    this.primaryModel = modelName ?? process.env.GEMINI_MODEL ?? "gemini-3.8-flash";
+    this.primaryModel = modelName ?? process.env.GEMINI_MODEL ?? "gemini-1.5-flash";
     this.candidateModels = [
       this.primaryModel,
-      "gemini-3.8-flash",
-      "gemini-3.6-flash",
-      "gemini-3.5-flash-lite",
-    ].filter((m, i, arr) => arr.indexOf(m) === i);
+      "gemini-1.5-flash",
+      "gemini-2.0-flash",
+      "gemini-1.5-pro",
+    ].filter((m, i, arr) => arr.indexOf(m) === i && !m.includes("3.8") && !m.includes("3.6") && !m.includes("3.5"));
   }
 
   /**
@@ -386,19 +386,33 @@ Indian Portions context:
 - Medium roti = ~120 kcal, 3g P, 22g C, 2g F
 - Cup = 240ml`;
 
-    const model = this.client.getGenerativeModel({
-      model: this.primaryModel,
-      systemInstruction,
-    });
+    let lastError: unknown;
+    for (const modelName of this.candidateModels) {
+      try {
+        const model = this.client.getGenerativeModel({
+          model: modelName,
+          systemInstruction,
+        });
 
-    const result = await model.generateContentStream(rawMsg);
-    let fullText = "";
-    for await (const chunk of result.stream) {
-      const text = chunk.text();
-      fullText += text;
-      onChunk(text);
+        const prompt = `User query: "${rawMsg}"\nLive Context: ${JSON.stringify(groundedContext)}`;
+        const result = await model.generateContentStream(prompt);
+        let fullText = "";
+        for await (const chunk of result.stream) {
+          const text = chunk.text();
+          fullText += text;
+          onChunk(text);
+        }
+        if (fullText.trim().length > 0) {
+          return fullText;
+        }
+      } catch (err) {
+        lastError = err;
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(`Gemini chat model ${modelName} failed (${msg}), trying next candidate...`);
+      }
     }
-    return fullText;
+
+    throw lastError || new Error("Gemini chatStream failed for all candidate models");
   }
 }
 

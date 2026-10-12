@@ -46,10 +46,24 @@ export default function TodayScreen() {
   const [isResetting, setIsResetting] = useState(false);
   const [isSeeding, setIsSeeding] = useState(false);
 
+  const [isSlowLoad, setIsSlowLoad] = useState(false);
+
   const { data, isLoading, isRefetching, error, refetch } = useQuery<TodayResponse>({
     queryKey: ["today"],
     queryFn: () => api.get<TodayResponse>("/today"),
+    staleTime: 1000 * 60 * 3, // Keep fresh for 3 minutes so tab switching is instant
+    retry: 2,
   });
+
+  useEffect(() => {
+    let t: NodeJS.Timeout;
+    if (isLoading) {
+      t = setTimeout(() => setIsSlowLoad(true), 3500);
+    } else {
+      setIsSlowLoad(false);
+    }
+    return () => clearTimeout(t);
+  }, [isLoading]);
 
   useEffect(() => {
     if (data?.timelineMeals) {
@@ -105,7 +119,11 @@ export default function TodayScreen() {
         </View>
         <View style={styles.syncingBanner}>
           <ActivityIndicator size="small" color={colors.brand.primary} />
-          <Text style={styles.syncingText}>Syncing daily nutrition & targets...</Text>
+          <Text style={styles.syncingText}>
+            {isSlowLoad
+              ? "Waking up cloud service (cold start)... Almost ready!"
+              : "Syncing daily nutrition & targets..."}
+          </Text>
         </View>
         <Skeleton width="100%" height={120} borderRadius={radius.lg} style={{ marginTop: spacing.xs }} />
         <Skeleton width="100%" height={180} borderRadius={radius.lg} style={{ marginTop: spacing.md }} />

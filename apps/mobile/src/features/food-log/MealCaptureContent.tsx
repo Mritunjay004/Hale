@@ -197,63 +197,101 @@ export function MealCaptureContent({ onParsed, onClose }: CaptureSheetProps) {
     }
   };
 
-  // 3. Camera / Photo Snap
-  const handlePickImage = async () => {
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert(
-        "Camera Permission",
-        "Camera access is needed to photograph meal plates."
-      );
-      return;
-    }
-
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.7, // Compress client-side
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      setAnalyzingMessage("Analyzing plate photo with AI...");
-      setAnalyzing(true);
-      try {
-        const asset = result.assets[0];
-        const formData = new FormData();
-        if (Platform.OS === "web") {
-          const imgBlob = await (await fetch(asset.uri)).blob();
-          formData.append("file", imgBlob, "plate.jpg");
-        } else {
-          formData.append("file", {
-            uri: asset.uri,
-            name: "plate.jpg",
-            type: asset.mimeType || "image/jpeg",
-          } as unknown as Blob);
-        }
-
-        if (suggestedMealType) {
-          formData.append("suggestedMealType", suggestedMealType);
-        }
-
-        const parsed = await api.uploadFormData<ParsedMeal>("/meals/parse-image", formData);
-
-        if (!parsed.isFood || !parsed.items || parsed.items.length === 0) {
-          Alert.alert(
-            "Unable to Identify Food",
-            parsed.clarifyingQuestion ??
-              "We couldn't clearly identify the items in this photo. Please describe what you ate or snap another photo with better lighting."
-          );
-          return;
-        }
-
-        onParsed(parsed, "camera", "Plate photo capture");
-      } catch (err) {
-        console.error("Photo analysis error:", err);
-        Alert.alert("Photo Error", "Could not analyze photo. Please describe your meal using text or voice.");
-      } finally {
-        setAnalyzing(false);
+  // 3. Camera Snap & Photo Library
+  const processImageUri = async (uri: string, mimeType?: string) => {
+    setAnalyzingMessage("Analyzing plate photo with AI...");
+    setAnalyzing(true);
+    try {
+      const formData = new FormData();
+      if (Platform.OS === "web") {
+        const imgBlob = await (await fetch(uri)).blob();
+        formData.append("file", imgBlob, "plate.jpg");
+      } else {
+        formData.append("file", {
+          uri,
+          name: "plate.jpg",
+          type: mimeType || "image/jpeg",
+        } as unknown as Blob);
       }
+
+      if (suggestedMealType) {
+        formData.append("suggestedMealType", suggestedMealType);
+      }
+
+      const parsed = await api.uploadFormData<ParsedMeal>("/meals/parse-image", formData);
+
+      if (!parsed.isFood || !parsed.items || parsed.items.length === 0) {
+        Alert.alert(
+          "Unable to Identify Food",
+          parsed.clarifyingQuestion ??
+            "We couldn't clearly identify the items in this photo. Please describe what you ate or snap another photo with better lighting."
+        );
+        return;
+      }
+
+      onParsed(parsed, "camera", "Plate photo capture");
+    } catch (err: any) {
+      console.error("Photo analysis error:", err);
+      Alert.alert(
+        "Photo Error",
+        err?.message || "Could not analyze photo. Please describe your meal using text or voice."
+      );
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const handlePickImage = async () => {
+    try {
+      lightImpact();
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(
+          "Camera Permission Needed",
+          "Camera access is needed to photograph meal plates. Please enable it in Settings."
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.6,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        await processImageUri(result.assets[0].uri, result.assets[0].mimeType);
+      }
+    } catch (err: any) {
+      console.error("Camera launch error:", err);
+      Alert.alert("Camera Error", err?.message || "Unable to open camera. You can choose from your gallery or type your meal.");
+    }
+  };
+
+  const handlePickFromGallery = async () => {
+    try {
+      lightImpact();
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(
+          "Photos Permission Needed",
+          "Photos access is needed to select food images. Please enable it in Settings."
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.6,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        await processImageUri(result.assets[0].uri, result.assets[0].mimeType);
+      }
+    } catch (err: any) {
+      console.error("Gallery launch error:", err);
+      Alert.alert("Gallery Error", err?.message || "Unable to open photo gallery.");
     }
   };
 
@@ -348,20 +386,34 @@ export function MealCaptureContent({ onParsed, onClose }: CaptureSheetProps) {
         </View>
       )}
 
-      {/* Mode 2: Camera */}
+      {/* Mode 2: Camera & Gallery */}
       {mode === "camera" && (
         <View style={styles.cameraHero}>
-          <Pressable
-            style={styles.cameraCircle}
-            onPress={handlePickImage}
-            accessibilityRole="button"
-            accessibilityLabel="Take plate photo"
-          >
-            <Text style={{ fontSize: 34 }}>📸</Text>
-          </Pressable>
-          <Text style={styles.voiceTitle}>Snap Your Plate</Text>
+          <View style={styles.cameraButtonsRow}>
+            <Pressable
+              style={({ pressed }) => [styles.cameraCircle, pressed && { opacity: 0.85 }]}
+              onPress={handlePickImage}
+              accessibilityRole="button"
+              accessibilityLabel="Take plate photo with camera"
+            >
+              <Text style={{ fontSize: 32 }}>📸</Text>
+              <Text style={styles.cameraCircleLabel}>Camera</Text>
+            </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [styles.galleryCircle, pressed && { opacity: 0.85 }]}
+              onPress={handlePickFromGallery}
+              accessibilityRole="button"
+              accessibilityLabel="Choose plate photo from gallery"
+            >
+              <Text style={{ fontSize: 32 }}>🖼️</Text>
+              <Text style={styles.galleryCircleLabel}>Gallery</Text>
+            </Pressable>
+          </View>
+
+          <Text style={styles.voiceTitle}>Photo Food Recognition</Text>
           <Text style={styles.voiceSub}>
-            Take a clear photo showing the whole meal. Compressed under 100kB.
+            Snap your plate or pick from photos. Hale estimates portions & macros automatically.
           </Text>
         </View>
       )}
@@ -481,14 +533,44 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.xs,
   },
+  cameraButtonsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.xl,
+    marginBottom: spacing.xs,
+  },
   cameraCircle: {
-    width: 72,
-    height: 72,
+    width: 76,
+    height: 76,
     borderRadius: radius.full,
     backgroundColor: colors.brand.primary,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: spacing.xs,
+    gap: 2,
+  },
+  cameraCircleLabel: {
+    ...typography.badge,
+    color: colors.text.inverse,
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  galleryCircle: {
+    width: 76,
+    height: 76,
+    borderRadius: radius.full,
+    backgroundColor: colors.bg.surface,
+    borderWidth: 1.5,
+    borderColor: colors.brand.primary,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 2,
+  },
+  galleryCircleLabel: {
+    ...typography.badge,
+    color: colors.brand.primary,
+    fontSize: 10,
+    fontWeight: "700",
   },
   voiceTitle: {
     ...typography.h3,

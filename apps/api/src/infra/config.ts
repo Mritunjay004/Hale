@@ -13,7 +13,7 @@ const envSchema = z.object({
   CORS_ORIGIN: z.string().default("http://localhost:8081"),
   AI_PROVIDER: z.enum(["fake", "gemini", "groq"]).default("fake"),
   GEMINI_API_KEY: z.string().default(""),
-  GEMINI_MODEL: z.string().default("gemini-3.8-flash"),
+  GEMINI_MODEL: z.string().default("gemini-1.5-flash"),
   GROQ_API_KEY: z.string().default(""),
   DEMO_MODE_ENABLED: z.coerce.boolean().default(true),
 });

@@ -49,6 +49,8 @@ export default function ChatScreen() {
   const { data, isLoading, refetch } = useQuery<ChatHistoryResponse>({
     queryKey: ["chatMessages"],
     queryFn: () => api.get<ChatHistoryResponse>("/chat/messages"),
+    staleTime: 1000 * 60 * 5, // Cache message history for 5 minutes
+    retry: 2,
   });
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);

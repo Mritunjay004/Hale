@@ -16,7 +16,8 @@
       "bundleIdentifier": "com.hale.assistant",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "Hale uses your microphone to transcribe meal logs in seconds.",
-        "NSCameraUsageDescription": "Hale uses your camera to identify food and parse blood report biomarkers."
+        "NSCameraUsageDescription": "Hale uses your camera to identify food and parse blood report biomarkers.",
+        "NSPhotoLibraryUsageDescription": "Hale uses your photos to analyze meals and lab reports."
       }
     },
     "android": {
@@ -28,7 +29,8 @@
       "permissions": [
         "RECORD_AUDIO",
         "CAMERA",
-        "READ_EXTERNAL_STORAGE"
+        "READ_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES"
       ]
     },
     "web": {
@@ -36,7 +38,14 @@
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Hale accesses your photos to analyze meals and lab reports.",
+          "cameraPermission": "Hale accesses your camera to take meal photos and scan blood test reports."
+        }
+      ]
     ],
     "scheme": "hale",
     "extra": {

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, Pressable, Platform } from "react-native";
+import { View, Text, StyleSheet, Pressable, Platform, Alert } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { colors, typography, spacing, radius } from "../../theme/tokens";
 import { Button } from "../../ui/Button";
@@ -44,25 +44,33 @@ export function ReportUploadSheet({
       if (useCamera) {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== "granted") {
-          alert("Camera permission is needed to scan paper reports.");
+          Alert.alert(
+            "Camera Permission Needed",
+            "Camera access is needed to scan paper reports. Please enable it in Settings."
+          );
           return;
         }
         result = await ImagePicker.launchCameraAsync({
           mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: false,
           base64: true,
-          quality: 0.6,
+          quality: 0.5,
         });
       } else {
         const { status } =
           await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== "granted") {
-          alert("Photos permission is needed to select report images.");
+          Alert.alert(
+            "Photos Permission Needed",
+            "Photos access is needed to select report images. Please enable it in Settings."
+          );
           return;
         }
         result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: false,
           base64: true,
-          quality: 0.6,
+          quality: 0.5,
         });
       }
 
@@ -70,17 +78,29 @@ export function ReportUploadSheet({
         const asset = result.assets[0];
         setIsExtracting(true);
         setExtractStatusText("Analyzing document & extracting biomarkers...");
-        const extracted = await api.post<ExtractedReportResponse>(
-          "/reports/extract",
-          {
-            base64: asset.base64,
-            mimeType: asset.mimeType || "image/jpeg",
-          },
-        );
-        onExtracted(extracted);
+        try {
+          const extracted = await api.post<ExtractedReportResponse>(
+            "/reports/extract",
+            {
+              base64: asset.base64,
+              mimeType: asset.mimeType || "image/jpeg",
+            },
+          );
+          onExtracted(extracted);
+        } catch (apiErr: any) {
+          console.error("Report extraction API failed:", apiErr);
+          Alert.alert(
+            "Extraction Notice",
+            "Could not parse the report image directly. You can try the Sample Blood Panel for instant demonstration."
+          );
+        }
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to capture image:", err);
+      Alert.alert(
+        "Capture Error",
+        err?.message || "Could not launch camera or photo picker. You can try the Sample Blood Panel instead."
+      );
     } finally {
       setIsExtracting(false);
     }
