@@ -135,6 +135,11 @@ export default function ChatScreen() {
         { signal: controller.signal }
       );
 
+      if (controller.signal.aborted) return;
+      if (!response?.message?.content?.trim()) {
+        throw new Error("Coach returned an empty response");
+      }
+
       if (response?.message) {
         setMessages((prev) => [...prev, response.message]);
 

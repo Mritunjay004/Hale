@@ -400,8 +400,9 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
       assistantReply = `Based on your daily targets, you have ~${remainingKcal} kcal and ${remainingProtein}g protein remaining today. For dinner, try 150g grilled paneer/chicken breast with 1 katori dal and 1 roti to hit your 30g protein goal easily!`;
     }
 
-    // If the client aborted/cancelled the request while thinking, exit gracefully
-    if (request.raw.destroyed || request.raw.closed) {
+    // The incoming body stream closes normally after being read. Only a
+    // destroyed response means the client can no longer receive the reply.
+    if (reply.raw.destroyed) {
       return;
     }
 
