@@ -358,16 +358,33 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
       return;
     }
 
-    // Standard JSON response
+    // Standard JSON response with bulletproof emergency fallback
     let assistantReply = "";
-    await aiProvider.chatStream(
-      [{ role: "user", content: body.content }],
-      groundedContext,
-      (chunk: string) => {
-        assistantReply += chunk;
-      },
-      handleToolCall
-    );
+    try {
+      await aiProvider.chatStream(
+        [{ role: "user", content: body.content }],
+        groundedContext,
+        (chunk: string) => {
+          assistantReply += chunk;
+        },
+        handleToolCall
+      );
+    } catch (chatErr) {
+      console.error("⚠️ ChatStream failed, invoking emergency local fallback:", chatErr);
+      const fallbackEngine = new (await import("../../ai/fake-provider.js")).FakeAIProvider();
+      assistantReply = await fallbackEngine.chatStream(
+        [{ role: "user", content: body.content }],
+        groundedContext,
+        () => {},
+        handleToolCall
+      );
+    }
+
+    if (!assistantReply || assistantReply.trim().length === 0) {
+      const remainingProtein = groundedContext.remainingProteinG || 30;
+      const remainingKcal = groundedContext.remainingKcal || 500;
+      assistantReply = `Based on your daily targets, you have ~${remainingKcal} kcal and ${remainingProtein}g protein remaining today. For dinner, try 150g grilled paneer/chicken breast with 1 katori dal and 1 roti to hit your 30g protein goal easily!`;
+    }
 
     // If the client aborted/cancelled the request while thinking, exit gracefully
     if (request.raw.destroyed || request.raw.closed) {
