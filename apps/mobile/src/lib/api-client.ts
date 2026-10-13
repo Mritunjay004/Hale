@@ -93,7 +93,7 @@ class ApiClient {
     });
 
     if (!response.ok) {
-      // Auto-heal stale or invalid session token (e.g., when switching between databases)
+      // Auto-heal stale or invalid session token (e.g., when switching between databases or local/prod)
       if (response.status === 401 && path !== "/sessions") {
         console.warn(
           "⚠️ Invalid or expired session token. Re-initializing session...",
@@ -101,26 +101,55 @@ class ApiClient {
         await this.resetSession();
         const freshToken = await this.getToken();
         headers.set("Authorization", `Bearer ${freshToken}`);
+
+        // If the body contains a stale threadId, strip it so the server binds to a fresh valid thread
+        let retryBody = options.body;
+        if (typeof retryBody === "string" && retryBody.includes("threadId")) {
+          try {
+            const parsed = JSON.parse(retryBody);
+            delete parsed.threadId;
+            retryBody = JSON.stringify(parsed);
+          } catch {
+            // Keep original
+          }
+        }
+
         const retryResponse = await fetch(`${API_BASE_URL}${path}`, {
           ...options,
           headers,
+          body: retryBody,
         });
+
         if (retryResponse.ok) {
-          return (await retryResponse.json()) as T;
+          const text = await retryResponse.text();
+          return (text ? JSON.parse(text) : {}) as T;
         }
+
+        let retryErr = `Request failed: ${retryResponse.statusText}`;
+        try {
+          const errorJson = (await retryResponse.json()) as { message?: string };
+          if (errorJson.message) retryErr = errorJson.message;
+        } catch {
+          // Fallback
+        }
+        throw new ApiError(retryErr, retryResponse.status);
       }
 
       let errMessage = `Request failed: ${response.statusText}`;
       try {
-        const errorJson = (await response.json()) as { message?: string };
-        if (errorJson.message) errMessage = errorJson.message;
+        const text = await response.text();
+        if (text) {
+          const errorJson = JSON.parse(text) as { message?: string };
+          if (errorJson.message) errMessage = errorJson.message;
+        }
       } catch {
         // Fallback to status text
       }
       throw new ApiError(errMessage, response.status);
     }
 
-    return (await response.json()) as T;
+    const text = await response.text();
+    return (text ? JSON.parse(text) : {}) as T;
   }
 
   get<T>(path: string, options?: RequestInit): Promise<T> {

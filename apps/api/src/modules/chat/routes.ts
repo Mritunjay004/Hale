@@ -89,9 +89,23 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
     const now = new Date();
     const todayStr = now.toISOString().split("T")[0]!;
 
-    // 1. Ensure thread exists
-    let threadId = body.threadId;
-    if (!threadId) {
+    // 1. Ensure valid thread exists for this user
+    let finalThreadId: string = "";
+    let isValidThread = false;
+
+    if (body.threadId) {
+      const match = await db
+        .select()
+        .from(chatThreads)
+        .where(and(eq(chatThreads.id, body.threadId), eq(chatThreads.userId, userId)))
+        .limit(1);
+      if (match.length > 0) {
+        isValidThread = true;
+        finalThreadId = body.threadId;
+      }
+    }
+
+    if (!isValidThread) {
       const existingThread = await db
         .select()
         .from(chatThreads)
@@ -100,11 +114,11 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
         .limit(1);
 
       if (existingThread.length > 0) {
-        threadId = existingThread[0]!.id;
+        finalThreadId = existingThread[0]!.id;
       } else {
-        threadId = crypto.randomUUID();
+        finalThreadId = crypto.randomUUID();
         await db.insert(chatThreads).values({
-          id: threadId,
+          id: finalThreadId,
           userId,
           title: "Health Coach",
         });
@@ -115,7 +129,7 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
     const userMessageId = crypto.randomUUID();
     await db.insert(chatMessages).values({
       id: userMessageId,
-      threadId,
+      threadId: finalThreadId,
       role: "user",
       content: body.content,
       toolCalls: [],
@@ -343,7 +357,7 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
       const assistantMsgId = crypto.randomUUID();
       await db.insert(chatMessages).values({
         id: assistantMsgId,
-        threadId,
+        threadId: finalThreadId,
         role: "assistant",
         content: assistantReply,
         toolCalls: executedToolCalls,
@@ -394,14 +408,14 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
     const assistantMsgId = crypto.randomUUID();
     await db.insert(chatMessages).values({
       id: assistantMsgId,
-      threadId,
+      threadId: finalThreadId,
       role: "assistant",
       content: assistantReply,
       toolCalls: executedToolCalls,
     });
 
     return reply.status(200).send({
-      threadId,
+      threadId: finalThreadId,
       message: {
         id: assistantMsgId,
         role: "assistant",
