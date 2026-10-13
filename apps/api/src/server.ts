@@ -1,8 +1,6 @@
-import { buildApp } from "./app.js";
+import app from "./app.js";
 import { config } from "./infra/config.js";
 import { closeDb } from "./infra/db/connection.js";
-
-const app = buildApp();
 
 async function start() {
   try {
@@ -28,5 +26,10 @@ for (const signal of signals) {
   });
 }
 
-void start();
+if (!process.env.VERCEL) {
+  void start();
+}
+
+export default app;
+
 

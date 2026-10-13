@@ -3,14 +3,24 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+const rawEnv = {
+  ...process.env,
+  DATABASE_URL: process.env.DATABASE_URL?.trim() || undefined,
+  AI_PROVIDER:
+    process.env.AI_PROVIDER?.trim().toLowerCase() ||
+    (process.env.GEMINI_API_KEY?.trim() ? "gemini" : "fake"),
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY?.trim() || "",
+  GEMINI_MODEL: process.env.GEMINI_MODEL?.trim() || "gemini-1.5-flash",
+  GROQ_API_KEY: process.env.GROQ_API_KEY?.trim() || "",
+};
+
 const envSchema = z.object({
   DATABASE_URL: z
     .string()
-    .url()
     .default("postgresql://postgres:postgres@localhost:5432/hale_dev"),
   PORT: z.coerce.number().default(3001),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
-  CORS_ORIGIN: z.string().default("http://localhost:8081"),
+  CORS_ORIGIN: z.string().default("*"),
   AI_PROVIDER: z.enum(["fake", "gemini", "groq"]).default("fake"),
   GEMINI_API_KEY: z.string().default(""),
   GEMINI_MODEL: z.string().default("gemini-1.5-flash"),
@@ -18,16 +28,14 @@ const envSchema = z.object({
   DEMO_MODE_ENABLED: z.coerce.boolean().default(true),
 });
 
-const parsed = envSchema.safeParse(process.env);
+const parsed = envSchema.safeParse(rawEnv);
 
 if (!parsed.success) {
-  console.error("❌ Invalid environment variables:", parsed.error.flatten().fieldErrors);
-  if (process.env.NODE_ENV !== "test") {
-    process.exit(1);
-  }
+  console.warn("⚠️ Environment validation notice, using safe defaults:", parsed.error.flatten().fieldErrors);
 }
 
 export type Config = z.infer<typeof envSchema>;
 export const config: Config = parsed.success
   ? parsed.data
   : envSchema.parse({});
+

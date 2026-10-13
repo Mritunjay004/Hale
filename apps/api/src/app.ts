@@ -34,18 +34,20 @@ export function buildApp(): FastifyInstance {
     },
   });
 
-  // Health endpoint
-  app.get("/health", async () => {
-    return {
-      status: "ok",
-      timestamp: new Date().toISOString(),
-      service: "hale-api",
-    };
+  // Health endpoints
+  const healthResponse = async () => ({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    service: "hale-api",
   });
+
+  app.get("/", healthResponse);
+  app.get("/health", healthResponse);
 
   // Route modules under /v1
   void app.register(
     async (v1) => {
+      v1.get("/health", healthResponse);
       void v1.register(sessionRoutes);
       void v1.register(profileRoutes);
       void v1.register(mealRoutes);
@@ -61,4 +63,8 @@ export function buildApp(): FastifyInstance {
 
   return app;
 }
+
+const app = buildApp();
+export default app;
+
 

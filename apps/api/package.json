@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc",
+    "build": "npm --prefix ../../packages/shared run build && tsc",
     "start": "node dist/server.js",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
@@ -22,7 +22,6 @@
     "dotenv": "^16.4.5",
     "drizzle-orm": "^0.31.2",
     "fastify": "^4.28.1",
-    "groq-sdk": "^1.6.0",
     "pino": "^9.2.0",
     "postgres": "^3.4.4",
     "zod": "^3.23.8"
