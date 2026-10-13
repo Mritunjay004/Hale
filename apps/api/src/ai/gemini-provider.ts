@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GEMINI_FALLBACK_MODELS, resolveGeminiModel } from "./gemini-models.js";
 import type { LLMProvider, VisionProvider } from "./interfaces.js";
 import {
   parsedMealSchema,
@@ -16,13 +17,8 @@ export class GeminiAIProvider implements LLMProvider, VisionProvider {
 
   constructor(apiKey: string, modelName?: string) {
     this.client = new GoogleGenerativeAI(apiKey);
-    this.primaryModel = modelName ?? process.env.GEMINI_MODEL ?? "gemini-1.5-flash";
-    this.candidateModels = [
-      this.primaryModel,
-      "gemini-1.5-flash",
-      "gemini-2.0-flash",
-      "gemini-1.5-pro",
-    ].filter((m, i, arr) => arr.indexOf(m) === i && !m.includes("3.8") && !m.includes("3.6") && !m.includes("3.5"));
+    this.primaryModel = resolveGeminiModel(modelName ?? process.env.GEMINI_MODEL);
+    this.candidateModels = [...new Set([this.primaryModel, ...GEMINI_FALLBACK_MODELS])];
   }
 
   /**

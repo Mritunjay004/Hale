@@ -1,5 +1,6 @@
 import { z } from "zod";
 import dotenv from "dotenv";
+import { DEFAULT_GEMINI_MODEL, resolveGeminiModel } from "../ai/gemini-models.js";
 
 dotenv.config();
 
@@ -10,7 +11,7 @@ const rawEnv = {
     process.env.AI_PROVIDER?.trim().toLowerCase() ||
     (process.env.GEMINI_API_KEY?.trim() ? "gemini" : "fake"),
   GEMINI_API_KEY: process.env.GEMINI_API_KEY?.trim() || "",
-  GEMINI_MODEL: process.env.GEMINI_MODEL?.trim() || "gemini-1.5-flash",
+  GEMINI_MODEL: resolveGeminiModel(process.env.GEMINI_MODEL),
   GROQ_API_KEY: process.env.GROQ_API_KEY?.trim() || "",
 };
 
@@ -23,7 +24,7 @@ const envSchema = z.object({
   CORS_ORIGIN: z.string().default("*"),
   AI_PROVIDER: z.enum(["fake", "gemini", "groq"]).default("fake"),
   GEMINI_API_KEY: z.string().default(""),
-  GEMINI_MODEL: z.string().default("gemini-1.5-flash"),
+  GEMINI_MODEL: z.string().default(DEFAULT_GEMINI_MODEL),
   GROQ_API_KEY: z.string().default(""),
   DEMO_MODE_ENABLED: z.coerce.boolean().default(true),
 });

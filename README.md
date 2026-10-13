@@ -168,6 +168,8 @@ cp apps/api/.env.example apps/api/.env
 ```
 *(Optionally add your `GEMINI_API_KEY`. If left blank or depleted, Hale automatically uses the built-in resilient local engine without breaking any flow).*
 
+For live AI on Render, set `AI_PROVIDER=gemini` and `GEMINI_API_KEY` in the API service's Environment settings. `GEMINI_MODEL` is optional and defaults to `gemini-3.8-flash`, with `gemini-3.5-flash-lite` as a fallback. Retired Gemini 1.5/2.0 settings automatically use the current default. Redeploy the API after updating the code or environment.
+
 ### 4. Build Shared Package & Run Dev
 ```bash
 npm run build
