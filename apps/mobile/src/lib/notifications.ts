@@ -69,6 +69,13 @@ export const DEFAULT_MEAL_REMINDERS: ScheduledMealReminder[] = [
  */
 async function setupAndroidChannel() {
   if (Platform.OS === "android") {
+    await Notifications.setNotificationChannelAsync("default", {
+      name: "Default",
+      importance: Notifications.AndroidImportance.HIGH,
+      vibrationPattern: [0, 250, 250, 250],
+      sound: "default",
+      lightColor: "#1B4931",
+    });
     await Notifications.setNotificationChannelAsync("meal-reminders", {
       name: "Meal & Habit Reminders",
       importance: Notifications.AndroidImportance.HIGH,
@@ -188,6 +195,7 @@ export async function syncMealReminders(
               action: "log_meal",
             },
             sound: true,
+            ...(Platform.OS === "android" ? { channelId: "meal-reminders" } : {}),
           },
           trigger: {
             hour: reminder.hour,
@@ -232,6 +240,7 @@ export async function sendTestNotification(
           action: "log_meal",
         },
         sound: true,
+        ...(Platform.OS === "android" ? { channelId: "meal-reminders" } : {}),
       },
       trigger: {
         seconds: 2,

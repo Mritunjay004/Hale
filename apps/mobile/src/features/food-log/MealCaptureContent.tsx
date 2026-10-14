@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  Linking,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { Audio } from "expo-av";
@@ -16,6 +17,7 @@ import { colors, spacing, radius, typography } from "../../theme/tokens";
 import { Button } from "../../ui/Button";
 import { Card } from "../../ui/Card";
 import { api } from "../../lib/api-client";
+import { resolveCapturePermission } from "../../lib/capture-permissions";
 import { lightImpact, mediumImpact, successNotification } from "../../lib/haptics";
 import { useMealCaptureStore } from "./useMealCaptureStore";
 import type { ParsedMeal, MealSource } from "@hale/shared";
@@ -33,6 +35,16 @@ const FREQUENT_MEALS = [
   { label: "Paneer Salad", text: "150g paneer salad with cucumbers and tomatoes" },
 ];
 
+function showPermissionAlert(title: string, message: string, canAskAgain: boolean) {
+  Alert.alert(title, message, canAskAgain ? [{ text: "OK" }] : [
+    { text: "Cancel", style: "cancel" },
+    {
+      text: "Open Settings",
+      onPress: () => { Linking.openSettings().catch((err) => console.error("Could not open app settings:", err)); },
+    },
+  ]);
+}
+
 export function MealCaptureContent({ onParsed, onClose }: CaptureSheetProps) {
   const suggestedMealType = useMealCaptureStore((s) => s.suggestedMealType);
   const [mode, setMode] = useState<"voice" | "camera" | "text">("voice");
@@ -41,13 +53,32 @@ export function MealCaptureContent({ onParsed, onClose }: CaptureSheetProps) {
   const [recordSeconds, setRecordSeconds] = useState(0);
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzingMessage, setAnalyzingMessage] = useState("Analyzing your meal...");
+  const [captureMessage, setCaptureMessage] = useState<string | null>(null);
+  const isCapturing = captureMessage !== null;
+  const controlsDisabled = isCapturing || isRecording;
 
   const recordingRef = useRef<Audio.Recording | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const captureInFlightRef = useRef(false);
+  const mountedRef = useRef(true);
+
+  const beginCapture = (message: string) => {
+    if (captureInFlightRef.current || analyzing || !mountedRef.current) return false;
+    captureInFlightRef.current = true;
+    setCaptureMessage(message);
+    return true;
+  };
+
+  const finishCapture = () => {
+    captureInFlightRef.current = false;
+    if (mountedRef.current) setCaptureMessage(null);
+  };
 
   // Clean up recording and timers if sheet unmounts
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
+      mountedRef.current = false;
       if (timerRef.current) clearInterval(timerRef.current);
       if (recordingRef.current) {
         recordingRef.current.stopAndUnloadAsync().catch(() => {});
@@ -88,25 +119,43 @@ export function MealCaptureContent({ onParsed, onClose }: CaptureSheetProps) {
 
   // 2. Real Microphone Voice Recording with User Controlled Stop
   const startRecording = async () => {
+    if (recordingRef.current || !beginCapture("Starting microphone...")) return;
+    const diagnosticTag = `[HaleCapture][voice:${Date.now()}]`;
+    console.info(`${diagnosticTag} tap`);
     try {
       lightImpact();
-      const permission = await Audio.requestPermissionsAsync();
+      const permission = await resolveCapturePermission(
+        () => Audio.getPermissionsAsync(),
+        () => Audio.requestPermissionsAsync(),
+        (message) => console.info(`${diagnosticTag} ${message}`),
+      );
+      if (!mountedRef.current) return;
       if (!permission.granted) {
-        Alert.alert(
+        showPermissionAlert(
           "Microphone Permission",
-          "Microphone access is required to speak your meal."
+          "Microphone access is required to speak your meal. Please enable it in Settings if access is blocked.",
+          permission.canAskAgain,
         );
         return;
       }
 
+      console.info(`${diagnosticTag} audio-mode:start`);
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
       });
+      console.info(`${diagnosticTag} audio-mode:resolved`);
+      if (!mountedRef.current) return;
 
+      console.info(`${diagnosticTag} recording:create`);
       const { recording } = await Audio.Recording.createAsync(
         Audio.RecordingOptionsPresets.HIGH_QUALITY
       );
+      console.info(`${diagnosticTag} recording:created`);
+      if (!mountedRef.current) {
+        await recording.stopAndUnloadAsync();
+        return;
+      }
       recordingRef.current = recording;
       setIsRecording(true);
       setRecordSeconds(0);
@@ -115,13 +164,15 @@ export function MealCaptureContent({ onParsed, onClose }: CaptureSheetProps) {
         setRecordSeconds((s) => s + 1);
       }, 1000);
     } catch (err) {
-      console.error("Failed to start recording:", err);
+      console.error(`${diagnosticTag} Failed to start recording:`, err);
       Alert.alert("Recording Error", "Could not initialize microphone. Please try typing.");
+    } finally {
+      finishCapture();
     }
   };
 
   const stopRecordingAndTranscribe = async () => {
-    if (!recordingRef.current) return;
+    if (!recordingRef.current || !beginCapture("Finishing recording...")) return;
     mediumImpact();
 
     if (timerRef.current) {
@@ -186,11 +237,12 @@ export function MealCaptureContent({ onParsed, onClose }: CaptureSheetProps) {
     } finally {
       setAnalyzing(false);
       setRecordSeconds(0);
+      finishCapture();
     }
   };
 
   const handleToggleVoice = async () => {
-    if (!isRecording) {
+    if (!recordingRef.current) {
       await startRecording();
     } else {
       await stopRecordingAndTranscribe();
@@ -242,40 +294,60 @@ export function MealCaptureContent({ onParsed, onClose }: CaptureSheetProps) {
   };
 
   const handlePickImage = async () => {
+    if (recordingRef.current || !beginCapture("Opening camera...")) return;
+    const diagnosticTag = `[HaleCapture][camera:${Date.now()}]`;
+    console.info(`${diagnosticTag} tap`);
     try {
       lightImpact();
-      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      const permission = await resolveCapturePermission(
+        () => ImagePicker.getCameraPermissionsAsync(),
+        () => ImagePicker.requestCameraPermissionsAsync(),
+        (message) => console.info(`${diagnosticTag} ${message}`),
+      );
+      if (!mountedRef.current) return;
       if (!permission.granted) {
-        Alert.alert(
+        showPermissionAlert(
           "Camera Permission Needed",
-          "Camera access is needed to photograph meal plates. Please enable it in Settings."
+          "Camera access is needed to photograph meal plates. Please enable it in Settings.",
+          permission.canAskAgain,
         );
         return;
       }
 
+      console.info(`${diagnosticTag} camera-launch:start`);
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: false,
         quality: 0.6,
       });
+      console.info(`${diagnosticTag} camera-launch:resolved canceled=${result.canceled}`);
+      if (!mountedRef.current) return;
 
       if (!result.canceled && result.assets && result.assets[0]) {
         await processImageUri(result.assets[0].uri, result.assets[0].mimeType);
       }
     } catch (err: any) {
-      console.error("Camera launch error:", err);
+      console.error(`${diagnosticTag} Camera launch error:`, err);
       Alert.alert("Camera Error", err?.message || "Unable to open camera. You can choose from your gallery or type your meal.");
+    } finally {
+      finishCapture();
     }
   };
 
   const handlePickFromGallery = async () => {
+    if (recordingRef.current || !beginCapture("Opening photos...")) return;
     try {
       lightImpact();
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const permission = await resolveCapturePermission(
+        () => ImagePicker.getMediaLibraryPermissionsAsync(),
+        () => ImagePicker.requestMediaLibraryPermissionsAsync(),
+      );
+      if (!mountedRef.current) return;
       if (!permission.granted) {
-        Alert.alert(
+        showPermissionAlert(
           "Photos Permission Needed",
-          "Photos access is needed to select food images. Please enable it in Settings."
+          "Photos access is needed to select food images. Please enable it in Settings.",
+          permission.canAskAgain,
         );
         return;
       }
@@ -285,6 +357,7 @@ export function MealCaptureContent({ onParsed, onClose }: CaptureSheetProps) {
         allowsEditing: false,
         quality: 0.6,
       });
+      if (!mountedRef.current) return;
 
       if (!result.canceled && result.assets && result.assets[0]) {
         await processImageUri(result.assets[0].uri, result.assets[0].mimeType);
@@ -292,6 +365,8 @@ export function MealCaptureContent({ onParsed, onClose }: CaptureSheetProps) {
     } catch (err: any) {
       console.error("Gallery launch error:", err);
       Alert.alert("Gallery Error", err?.message || "Unable to open photo gallery.");
+    } finally {
+      finishCapture();
     }
   };
 
@@ -328,6 +403,7 @@ export function MealCaptureContent({ onParsed, onClose }: CaptureSheetProps) {
         <Pressable
           style={[styles.tabBtn, mode === "voice" && styles.tabBtnActive]}
           onPress={() => setMode("voice")}
+          disabled={controlsDisabled}
         >
           <Text style={[styles.tabText, mode === "voice" && styles.tabTextActive]}>
             🎙 Voice
@@ -337,6 +413,7 @@ export function MealCaptureContent({ onParsed, onClose }: CaptureSheetProps) {
         <Pressable
           style={[styles.tabBtn, mode === "camera" && styles.tabBtnActive]}
           onPress={() => setMode("camera")}
+          disabled={controlsDisabled}
         >
           <Text style={[styles.tabText, mode === "camera" && styles.tabTextActive]}>
             📷 Camera
@@ -346,6 +423,7 @@ export function MealCaptureContent({ onParsed, onClose }: CaptureSheetProps) {
         <Pressable
           style={[styles.tabBtn, mode === "text" && styles.tabBtnActive]}
           onPress={() => setMode("text")}
+          disabled={controlsDisabled}
         >
           <Text style={[styles.tabText, mode === "text" && styles.tabTextActive]}>
             ⌨️ Text
@@ -353,12 +431,21 @@ export function MealCaptureContent({ onParsed, onClose }: CaptureSheetProps) {
         </Pressable>
       </View>
 
+      {isCapturing && (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
+          <ActivityIndicator color={colors.brand.primary} />
+          <Text style={styles.voiceSub}>{captureMessage}</Text>
+        </View>
+      )}
+
       {/* Mode 1: Voice */}
       {mode === "voice" && (
         <View style={styles.voiceHero}>
           <Pressable
             style={[styles.micCircle, isRecording && styles.micCircleRecording]}
             onPress={handleToggleVoice}
+            disabled={isCapturing}
+            accessibilityState={{ disabled: isCapturing, busy: isCapturing }}
             accessibilityRole="button"
             accessibilityLabel={isRecording ? "Stop recording and finish" : "Record voice"}
           >
@@ -377,6 +464,7 @@ export function MealCaptureContent({ onParsed, onClose }: CaptureSheetProps) {
             <Pressable
               style={styles.doneSpeakingBtn}
               onPress={handleToggleVoice}
+              disabled={isCapturing}
               accessibilityRole="button"
               accessibilityLabel="Done Speaking"
             >
@@ -389,32 +477,66 @@ export function MealCaptureContent({ onParsed, onClose }: CaptureSheetProps) {
       {/* Mode 2: Camera & Gallery */}
       {mode === "camera" && (
         <View style={styles.cameraHero}>
-          <View style={styles.cameraButtonsRow}>
+          <Pressable
+            style={({ pressed }) => [styles.cameraHeroHeader, pressed && { opacity: 0.85 }]}
+            onPress={handlePickImage}
+            disabled={controlsDisabled}
+            accessibilityState={{ disabled: controlsDisabled, busy: isCapturing }}
+            accessibilityRole="button"
+            accessibilityLabel="Photo Food Recognition - Tap to take photo"
+          >
+            <Text style={styles.voiceTitle}>Photo Food Recognition</Text>
+            <Text style={styles.voiceSub}>
+              Snap your plate or pick from photos. Hale estimates portions & macros automatically.
+            </Text>
+          </Pressable>
+
+          <View style={styles.cameraCardsContainer}>
             <Pressable
-              style={({ pressed }) => [styles.cameraCircle, pressed && { opacity: 0.85 }]}
+              style={({ pressed }) => [
+                styles.actionOptionCard,
+                styles.actionOptionCardPrimary,
+                pressed && { opacity: 0.85 },
+              ]}
               onPress={handlePickImage}
+              disabled={controlsDisabled}
+              accessibilityState={{ disabled: controlsDisabled, busy: isCapturing }}
               accessibilityRole="button"
-              accessibilityLabel="Take plate photo with camera"
+              accessibilityLabel="Take Photo with Camera"
             >
-              <Text style={{ fontSize: 32 }}>📸</Text>
-              <Text style={styles.cameraCircleLabel}>Camera</Text>
+              <Text style={{ fontSize: 28 }}>📸</Text>
+              <View style={styles.actionOptionTextGroup}>
+                <Text style={styles.actionOptionTitlePrimary}>
+                  Take Photo with Camera
+                </Text>
+                <Text style={styles.actionOptionDescPrimary}>
+                  Instant snapshot of your meal plate
+                </Text>
+              </View>
             </Pressable>
 
             <Pressable
-              style={({ pressed }) => [styles.galleryCircle, pressed && { opacity: 0.85 }]}
+              style={({ pressed }) => [
+                styles.actionOptionCard,
+                pressed && { opacity: 0.85 },
+              ]}
               onPress={handlePickFromGallery}
+              disabled={controlsDisabled}
+              accessibilityState={{ disabled: controlsDisabled, busy: isCapturing }}
               accessibilityRole="button"
-              accessibilityLabel="Choose plate photo from gallery"
+              accessibilityLabel="Choose from Gallery"
             >
-              <Text style={{ fontSize: 32 }}>🖼️</Text>
-              <Text style={styles.galleryCircleLabel}>Gallery</Text>
+              <Text style={{ fontSize: 28 }}>🖼️</Text>
+              <View style={styles.actionOptionTextGroup}>
+                <Text style={styles.actionOptionTitle}>
+                  Choose from Gallery
+                </Text>
+                <Text style={styles.actionOptionDesc}>
+                  Select an existing food photo
+                </Text>
+              </View>
             </Pressable>
           </View>
-
-          <Text style={styles.voiceTitle}>Photo Food Recognition</Text>
-          <Text style={styles.voiceSub}>
-            Snap your plate or pick from photos. Hale estimates portions & macros automatically.
-          </Text>
         </View>
       )}
 
@@ -432,7 +554,7 @@ export function MealCaptureContent({ onParsed, onClose }: CaptureSheetProps) {
           <Button
             label="Analyze Food →"
             onPress={() => handleParseText()}
-            disabled={!textInput.trim()}
+            disabled={!textInput.trim() || controlsDisabled}
             style={{ width: "100%" }}
           />
         </View>
@@ -447,6 +569,7 @@ export function MealCaptureContent({ onParsed, onClose }: CaptureSheetProps) {
               key={i}
               style={styles.frequentChip}
               onPress={() => handleParseText(f.text)}
+              disabled={controlsDisabled}
             >
               <Text style={styles.frequentChipText}>+ {f.label}</Text>
             </Pressable>
@@ -455,7 +578,7 @@ export function MealCaptureContent({ onParsed, onClose }: CaptureSheetProps) {
       </View>
 
       {/* Valid "Skipped Meal" Option */}
-      <Pressable style={styles.skipButton} onPress={handleMarkSkipped}>
+      <Pressable style={styles.skipButton} onPress={handleMarkSkipped} disabled={controlsDisabled}>
         <Text style={styles.skipButtonText}>
           Didn't eat? Log as Skipped Meal
         </Text>
@@ -529,48 +652,56 @@ const styles = StyleSheet.create({
   cameraHero: {
     backgroundColor: colors.bg.subtle,
     borderRadius: radius.lg,
-    padding: spacing.xl,
+    padding: spacing.md,
+    gap: spacing.md,
+  },
+  cameraHeroHeader: {
     alignItems: "center",
     gap: spacing.xs,
+    paddingVertical: spacing.xs,
   },
-  cameraButtonsRow: {
+  cameraCardsContainer: {
+    gap: spacing.sm,
+    width: "100%",
+  },
+  actionOptionCard: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.xl,
-    marginBottom: spacing.xs,
-  },
-  cameraCircle: {
-    width: 76,
-    height: 76,
-    borderRadius: radius.full,
-    backgroundColor: colors.brand.primary,
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 2,
-  },
-  cameraCircleLabel: {
-    ...typography.badge,
-    color: colors.text.inverse,
-    fontSize: 10,
-    fontWeight: "700",
-  },
-  galleryCircle: {
-    width: 76,
-    height: 76,
-    borderRadius: radius.full,
     backgroundColor: colors.bg.surface,
-    borderWidth: 1.5,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border.subtle,
+    gap: spacing.md,
+  },
+  actionOptionCardPrimary: {
+    backgroundColor: colors.brand.primaryLight,
     borderColor: colors.brand.primary,
-    justifyContent: "center",
-    alignItems: "center",
+  },
+  actionOptionTextGroup: {
+    flex: 1,
     gap: 2,
   },
-  galleryCircleLabel: {
-    ...typography.badge,
-    color: colors.brand.primary,
-    fontSize: 10,
+  actionOptionTitle: {
+    ...typography.bodyMedium,
+    color: colors.text.primary,
     fontWeight: "700",
+  },
+  actionOptionTitlePrimary: {
+    ...typography.bodyMedium,
+    color: colors.brand.primary,
+    fontWeight: "700",
+  },
+  actionOptionDesc: {
+    ...typography.caption,
+    color: colors.text.secondary,
+    fontSize: 12,
+  },
+  actionOptionDescPrimary: {
+    ...typography.caption,
+    color: colors.brand.primary,
+    fontSize: 12,
+    opacity: 0.9,
   },
   voiceTitle: {
     ...typography.h3,

@@ -12,7 +12,7 @@
     "dev:api": "npm --workspace=@hale/api run dev",
     "dev:mobile": "npm --workspace=@hale/mobile run start",
     "build": "npm run build --workspaces --if-present",
-    "postinstall": "npm run build --workspace=@hale/shared",
+    "postinstall": "node patches/apply-expo-permissions-fix.cjs && npm run build --workspace=@hale/shared",
     "test": "npm test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",

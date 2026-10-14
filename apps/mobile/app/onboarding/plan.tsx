@@ -14,6 +14,7 @@ import { OnboardingHeader } from "../../src/features/onboarding/OnboardingHeader
 import { useOnboardingStore } from "../../src/features/onboarding/store";
 import { api, ONBOARDED_KEY } from "../../src/lib/api-client";
 import { setSecureItem } from "../../src/lib/secure-storage";
+import { requestNotificationPermissions } from "../../src/lib/notifications";
 import type { PlanResponse } from "@hale/shared";
 
 function formatFriendlyDate(dateStr?: string | null): string {
@@ -94,6 +95,13 @@ export default function PlanPayoffScreen() {
         targetWeeks: store.targetWeeks,
         notesTags: store.notesTags,
       });
+
+      // Prompt for notifications upfront so daily meal reminders and streak protectors are active
+      try {
+        await requestNotificationPermissions();
+      } catch (e) {
+        console.warn("Initial notification permission prompt skipped:", e);
+      }
 
       await setSecureItem(ONBOARDED_KEY, "true");
       router.replace("/(tabs)");

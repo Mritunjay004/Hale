@@ -6,6 +6,7 @@ import { Button } from "../../src/ui/Button";
 import { HaleLogo } from "../../src/ui/HaleLogo";
 import { api, ONBOARDED_KEY } from "../../src/lib/api-client";
 import { setSecureItem } from "../../src/lib/secure-storage";
+import { requestNotificationPermissions } from "../../src/lib/notifications";
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -13,9 +14,11 @@ export default function WelcomeScreen() {
   const handleSeedDemo = async () => {
     try {
       await api.post("/dev/seed-demo");
+      await requestNotificationPermissions().catch(() => {});
       await setSecureItem(ONBOARDED_KEY, "true");
       router.replace("/(tabs)");
     } catch {
+      await requestNotificationPermissions().catch(() => {});
       await setSecureItem(ONBOARDED_KEY, "true");
       router.replace("/(tabs)");
     }

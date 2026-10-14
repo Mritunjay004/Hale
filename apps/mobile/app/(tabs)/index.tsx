@@ -27,7 +27,7 @@ import {
   MealSlotTracker,
   MealRemindersModal,
 } from "../../src/features/today";
-import { syncMealReminders } from "../../src/lib/notifications";
+import { syncMealReminders, requestNotificationPermissions } from "../../src/lib/notifications";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useMealCaptureStore } from "../../src/features/food-log/useMealCaptureStore";
@@ -64,6 +64,17 @@ export default function TodayScreen() {
     }
     return () => clearTimeout(t);
   }, [isLoading]);
+
+  useEffect(() => {
+    // Proactively request notification permissions on launch so users get timely meal nudges & streak protection
+    const initNotifications = async () => {
+      const granted = await requestNotificationPermissions();
+      if (granted && data?.timelineMeals) {
+        syncMealReminders(data.timelineMeals, data.streak?.currentStreakDays ?? 0);
+      }
+    };
+    initNotifications();
+  }, []);
 
   useEffect(() => {
     if (data?.timelineMeals) {
